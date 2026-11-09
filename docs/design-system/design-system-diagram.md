@@ -1,19 +1,19 @@
 # 디자인 시스템 관리 구조
 
 디자인 시스템을 파일로 세분화하고, Claude Code 기능(rules, skill, subagent, hook, MCP)으로 관리하는 구조 문서다.
-아래 1~6단계는 적용되었고, 7단계(코드 마이그레이션)만 남았다. 파일 목록은 [README.md](./README.md)의 목차를 본다.
+1~7단계를 모두 적용했다. 파일 목록은 [README.md](./README.md)의 목차를 본다.
 
 ## 구현 현황
 
-| 단계 | 내용                                                    | 상태                                        |
-| ---- | ------------------------------------------------------- | ------------------------------------------- |
-| 1    | 문서 분리 (foundations / components / rules, migration) | 완료                                        |
-| 2    | `tokens.json` 도입, 문서에서 hex 제거                   | 완료                                        |
-| 3    | CLAUDE.md `@import`, `.claude/rules/design-system.md`   | 완료                                        |
-| 4    | skill(`design-system`, `ds-migrate`), `ds-reviewer`     | 완료                                        |
-| 5    | hook: `.claude/hooks/ds-check.mjs` (경고만, 차단 안 함) | 완료 (`PostToolUse` Edit/Write)             |
-| 6    | Figma 동기화                                            | 완료 (아래 참고)                            |
-| 7    | 코드 마이그레이션                                       | 미진행. [migration.md](./migration.md) 참고 |
+| 단계 | 내용                                                    | 상태                                      |
+| ---- | ------------------------------------------------------- | ----------------------------------------- |
+| 1    | 문서 분리 (foundations / components / rules, migration) | 완료                                      |
+| 2    | `tokens.json` 도입, 문서에서 hex 제거                   | 완료                                      |
+| 3    | CLAUDE.md `@import`, `.claude/rules/design-system.md`   | 완료                                      |
+| 4    | skill(`design-system`, `ds-migrate`), `ds-reviewer`     | 완료                                      |
+| 5    | hook: `.claude/hooks/ds-check.mjs` (경고만, 차단 안 함) | 완료 (`PostToolUse` Edit/Write)           |
+| 6    | Figma 동기화                                            | 완료 (아래 참고)                          |
+| 7    | 코드 마이그레이션                                       | 완료. [migration.md](./migration.md) 참고 |
 
 결정 사항: 토큰 동기화는 **수동**(`tokens.json` 변경 시 `src/index.css`와 Figma 변수를 직접 맞춘다), hook은 **경고만** 한다. 후보였던 `PreToolUse`(차단)와 `Stop` hook은 도입하지 않았다.
 

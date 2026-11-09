@@ -98,7 +98,7 @@ src/
 
 - 스타일 파일(`src/**/*.tsx`, `src/index.css`)을 수정할 때는 `.claude/rules/design-system.md`가 자동 로드된다. 필요한 문서만 골라 읽는 `design-system` skill도 쓸 수 있다.
 - 토큰 값(hex)의 원본은 `docs/design-system/foundations/tokens.json`이다. 값을 바꾸면 `src/index.css`와 Figma 변수를 수동으로 맞춘다.
-- 기존 코드(`src/index.css`, `components/*`)는 아직 새 디자인 시스템으로 마이그레이션되지 않았다. 차이는 `docs/design-system/migration.md`를 본다. 스타일을 수정하는 파일은 디자인 시스템 기준에 맞춘다.
+- 기존 코드(`src/index.css`, `components/*`)는 새 디자인 시스템으로 마이그레이션되었다. 처리 이력은 `docs/design-system/migration.md`를 본다. 스타일을 수정하는 파일은 디자인 시스템 기준에 맞춘다.
 - 관리 구조(skill, subagent, hook 흐름)는 `docs/design-system/design-system-diagram.md`를 본다.
 
 ## 테스트 설정

@@ -4,8 +4,11 @@
 한글은 Inter에 글리프가 없으므로 **Pretendard Variable**로 폴백한다.
 
 ```css
---font-sans: 'Inter', 'Pretendard Variable', system-ui, sans-serif;
+--font-sans: 'Inter Variable', 'Inter', 'Pretendard Variable', system-ui, sans-serif;
 ```
+
+폰트는 CDN이 아니라 npm 패키지(`@fontsource-variable/inter`, `pretendard`)로 설치해 `src/main.tsx`에서 import한다.
+`Inter Variable`은 fontsource 패키지가 등록하는 패밀리 이름이다. `index.html`에 폰트 `<link>`를 추가하지 않는다.
 
 ## 스케일
 
