@@ -39,7 +39,13 @@ src/
 │       ├── Layout.tsx        # 헤더("+ 새 노트") + 사이드바/메인 슬롯 레이아웃
 │       ├── NoteList.tsx      # [sidebar] loading/error/empty 분기 후 NoteItem 렌더
 │       │   └── NoteItem.tsx  #   카드 UI, 삭제 버튼은 stopPropagation
-│       └── NoteEditor.tsx    # [main] 제목/내용 폼, 생성/수정 겸용
+│       ├── NoteEditor.tsx    # [main] 제목/내용 폼, 생성/수정 겸용
+│       │                     #   · 저장: Confirm(info) → 성공 Alert(success) / 실패 Alert(error)
+│       │                     #   · 변경 없음이면 Confirm 없이 Alert(warning)
+│       │   ├── DialogOverlay.tsx  #   화면 전체를 덮는 배경 막 (Alert/Confirm을 가운데에 띄움)
+│       │   ├── Confirm.tsx   #   확인/취소 대화상자 (variant: info/success/warning/error)
+│       │   ├── Alert.tsx     #   안내 대화상자 (variant 동일)
+│       │   └── statusStyles.ts #  Alert/Confirm이 공유하는 상태별 클래스 맵
 ├── context/
 │   └── NotesContext.tsx      # NotesProvider: notes/loading/error + addNote/editNote/removeNote
 │                             #   · 마운트 시 fetchNotes로 초기 로딩
@@ -69,7 +75,7 @@ src/
 ### 상태관리 방식
 
 - 외부 라이브러리 없이 **React 내장 `useState` + Context**만 사용 (reducer, memo 계열 훅 없음).
-- 서버 데이터(`notes/loading/error`) → `NotesContext`. UI 선택 상태(`selectedNoteId`, `isCreating`) → `App`의 `useState` 후 props drilling. 폼 입력(`title/content/saving`) → `NoteEditor` 로컬 `useState`.
+- 서버 데이터(`notes/loading/error`) → `NotesContext`. UI 선택 상태(`selectedNoteId`, `isCreating`) → `App`의 `useState` 후 props drilling. 폼 입력(`title/content/saving`)과 대화상자 상태(`dialog`) → `NoteEditor` 로컬 `useState`.
 - 변경 후에는 서버 응답으로 로컬 배열을 갱신(`[...prev, new]`, `map`, `filter`)하며, 재조회(refetch)는 하지 않는다.
 
 ### API 호출 패턴
@@ -77,7 +83,7 @@ src/
 - 리소스당 `api/<resource>.ts`에 `async` 함수 모음, 컴포넌트는 직접 `fetch`하지 않고 **Context 경유**로만 호출 (`import * as api`).
 - 순서: `fetch` → `if (!res.ok) throw new Error('Failed to ...')` → `res.json()`. 삭제만 반환값 없음(`Promise<void>`).
 - 수정은 `PATCH`(부분 갱신) + `updatedAt` 자동 갱신. 헤더는 `Content-Type: application/json`.
-- 에러는 API → Context로 그대로 전파되고, 호출한 컴포넌트(`NoteEditor`)가 `try/catch`에서 `alert`로 처리.
+- 에러는 API → Context로 그대로 전파되고, 호출한 컴포넌트(`NoteEditor`)가 `try/catch`에서 `Alert`(error) 대화상자로 사용자에게 알린다.
 
 ### 네이밍 패턴
 
