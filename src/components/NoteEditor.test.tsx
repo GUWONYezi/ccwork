@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NoteEditor } from './NoteEditor';
@@ -66,36 +66,225 @@ describe('NoteEditor', () => {
     expect(screen.getByPlaceholderText('내용을 입력하세요...')).toHaveValue('기존 내용');
   });
 
-  it('생성 모드에서 저장하면 createNote(title, content)를 호출하고 onDone을 호출한다', async () => {
-    const { createNote, onDone } = setup({ isCreating: true });
+  describe('저장 흐름', () => {
+    async function fillNewNote() {
+      await userEvent.type(screen.getByPlaceholderText('제목'), '새 제목');
+      await userEvent.type(screen.getByPlaceholderText('내용을 입력하세요...'), '새 내용');
+    }
 
-    await userEvent.type(screen.getByPlaceholderText('제목'), '새 제목');
-    await userEvent.type(screen.getByPlaceholderText('내용을 입력하세요...'), '새 내용');
-    await userEvent.click(screen.getByRole('button', { name: '저장' }));
+    async function clickSave() {
+      await userEvent.click(screen.getByRole('button', { name: '저장' }));
+    }
 
-    await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
-    expect(createNote).toHaveBeenCalledWith('새 제목', '새 내용');
-  });
+    describe('저장 확인 (Confirm, info)', () => {
+      it('저장을 누르면 "저장하시겠습니까?" Confirm이 뜨고, 아직 저장하지 않는다', async () => {
+        const { createNote } = setup({ isCreating: true });
+        await fillNewNote();
 
-  it('수정 모드에서 저장하면 updateNote(id, { title, content })를 호출한다', async () => {
-    const { updateNote, onDone } = setup({ selectedNoteId: 'n1' });
+        await clickSave();
 
-    const title = screen.getByPlaceholderText('제목');
-    await userEvent.clear(title);
-    await userEvent.type(title, '바뀐 제목');
-    await userEvent.click(screen.getByRole('button', { name: '저장' }));
+        const dialog = screen.getByRole('alertdialog', { name: '저장 확인' });
+        expect(dialog).toBeInTheDocument();
+        expect(screen.getByText('저장하시겠습니까?')).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: '저장 확인' }).parentElement).toHaveClass(
+          'bg-status-info-container',
+        );
+        expect(createNote).not.toHaveBeenCalled();
+      });
 
-    await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
-    expect(updateNote).toHaveBeenCalledWith('n1', { title: '바뀐 제목', content: '기존 내용' });
-  });
+      it('Confirm의 확인 버튼은 info 상태색이다', async () => {
+        setup({ isCreating: true });
+        await fillNewNote();
 
-  it('제목이 비어 있으면 저장하지 않는다', async () => {
-    const { createNote, onDone } = setup({ isCreating: true });
+        await clickSave();
 
-    await userEvent.click(screen.getByRole('button', { name: '저장' }));
+        const dialog = screen.getByRole('alertdialog');
+        expect(within(dialog).getByRole('button', { name: '저장' })).toHaveClass('bg-status-info');
+      });
 
-    expect(createNote).not.toHaveBeenCalled();
-    expect(onDone).not.toHaveBeenCalled();
+      it('Confirm에서 취소하면 닫히고 저장하지 않으며 입력 내용은 유지된다', async () => {
+        const { createNote, onDone } = setup({ isCreating: true });
+        await fillNewNote();
+        await clickSave();
+
+        await userEvent.click(
+          within(screen.getByRole('alertdialog')).getByRole('button', { name: '취소' }),
+        );
+
+        expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+        expect(createNote).not.toHaveBeenCalled();
+        expect(onDone).not.toHaveBeenCalled();
+        expect(screen.getByPlaceholderText('제목')).toHaveValue('새 제목');
+      });
+    });
+
+    describe('저장 성공 (Alert, success)', () => {
+      it('생성 모드: 확인하면 createNote를 호출하고 성공 Alert를 띄운다', async () => {
+        const { createNote } = setup({ isCreating: true });
+        await fillNewNote();
+        await clickSave();
+
+        await userEvent.click(
+          within(screen.getByRole('alertdialog')).getByRole('button', { name: '저장' }),
+        );
+
+        expect(await screen.findByText('성공적으로 저장되었습니다.')).toBeInTheDocument();
+        expect(createNote).toHaveBeenCalledWith('새 제목', '새 내용');
+        expect(screen.getByRole('alert')).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: '저장 완료' }).parentElement).toHaveClass(
+          'bg-status-success-container',
+        );
+        expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+      });
+
+      it('수정 모드: 확인하면 updateNote(id, { title, content })를 호출한다', async () => {
+        const { updateNote } = setup({ selectedNoteId: 'n1' });
+        const title = screen.getByPlaceholderText('제목');
+        await userEvent.clear(title);
+        await userEvent.type(title, '바뀐 제목');
+        await clickSave();
+
+        await userEvent.click(
+          within(screen.getByRole('alertdialog')).getByRole('button', { name: '저장' }),
+        );
+
+        expect(await screen.findByText('성공적으로 저장되었습니다.')).toBeInTheDocument();
+        expect(updateNote).toHaveBeenCalledWith('n1', {
+          title: '바뀐 제목',
+          content: '기존 내용',
+        });
+      });
+
+      it('성공 Alert를 닫을 때 onDone을 호출한다 (닫기 전에는 호출하지 않는다)', async () => {
+        const { onDone } = setup({ isCreating: true });
+        await fillNewNote();
+        await clickSave();
+        await userEvent.click(
+          within(screen.getByRole('alertdialog')).getByRole('button', { name: '저장' }),
+        );
+        await screen.findByText('성공적으로 저장되었습니다.');
+        expect(onDone).not.toHaveBeenCalled();
+
+        await userEvent.click(screen.getByRole('button', { name: '닫기' }));
+
+        expect(onDone).toHaveBeenCalledTimes(1);
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      });
+    });
+
+    describe('저장 실패 (Alert, error)', () => {
+      async function failSave() {
+        const fns = setup({ isCreating: true });
+        fns.createNote.mockRejectedValue(new Error('network'));
+        await fillNewNote();
+        await clickSave();
+        await userEvent.click(
+          within(screen.getByRole('alertdialog')).getByRole('button', { name: '저장' }),
+        );
+        return fns;
+      }
+
+      it('"저장에 실패 하였습니다." 오류 Alert를 띄운다', async () => {
+        await failSave();
+
+        expect(await screen.findByText('저장에 실패 하였습니다.')).toBeInTheDocument();
+        expect(screen.getByRole('alert')).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: '저장 실패' }).parentElement).toHaveClass(
+          'bg-status-error-container',
+        );
+        expect(screen.queryByText('성공적으로 저장되었습니다.')).not.toBeInTheDocument();
+      });
+
+      it('오류 Alert를 닫아도 편집 화면과 입력 내용이 유지되고 onDone은 호출하지 않는다', async () => {
+        const { onDone } = await failSave();
+        await screen.findByText('저장에 실패 하였습니다.');
+
+        await userEvent.click(screen.getByRole('button', { name: '닫기' }));
+
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+        expect(onDone).not.toHaveBeenCalled();
+        expect(screen.getByPlaceholderText('제목')).toHaveValue('새 제목');
+        expect(screen.getByPlaceholderText('내용을 입력하세요...')).toHaveValue('새 내용');
+      });
+
+      it('저장이 끝나면 저장 버튼이 다시 활성화된다', async () => {
+        await failSave();
+        await screen.findByText('저장에 실패 하였습니다.');
+
+        await userEvent.click(screen.getByRole('button', { name: '닫기' }));
+
+        expect(screen.getByRole('button', { name: '저장' })).toBeEnabled();
+      });
+    });
+
+    describe('변경 없음 (Alert, warning)', () => {
+      it('수정 모드에서 바꾼 게 없으면 Confirm 없이 경고 Alert를 띄운다', async () => {
+        const { updateNote } = setup({ selectedNoteId: 'n1' });
+
+        await clickSave();
+
+        expect(screen.getByText('변경된 내용이 없습니다.')).toBeInTheDocument();
+        expect(screen.getByRole('alert')).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: '변경 없음' }).parentElement).toHaveClass(
+          'bg-status-warning-container',
+        );
+        expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+        expect(updateNote).not.toHaveBeenCalled();
+      });
+
+      it('수정했다가 원래 값으로 되돌려도 변경 없음으로 본다', async () => {
+        const { updateNote } = setup({ selectedNoteId: 'n1' });
+        const title = screen.getByPlaceholderText('제목');
+        await userEvent.clear(title);
+        await userEvent.type(title, '임시');
+        await userEvent.clear(title);
+        await userEvent.type(title, '기존 제목');
+
+        await clickSave();
+
+        expect(screen.getByText('변경된 내용이 없습니다.')).toBeInTheDocument();
+        expect(updateNote).not.toHaveBeenCalled();
+      });
+
+      it('생성 모드에서 아무것도 입력하지 않으면 경고 Alert를 띄운다', async () => {
+        const { createNote } = setup({ isCreating: true });
+
+        await clickSave();
+
+        expect(screen.getByText('변경된 내용이 없습니다.')).toBeInTheDocument();
+        expect(createNote).not.toHaveBeenCalled();
+      });
+
+      it('경고 Alert를 닫으면 편집 화면에 머문다 (onDone을 호출하지 않는다)', async () => {
+        const { onDone } = setup({ selectedNoteId: 'n1' });
+        await clickSave();
+
+        await userEvent.click(screen.getByRole('button', { name: '닫기' }));
+
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+        expect(onDone).not.toHaveBeenCalled();
+        expect(screen.getByPlaceholderText('제목')).toHaveValue('기존 제목');
+      });
+    });
+
+    it('제목이 비어 있으면 Confirm을 띄우지 않고 저장하지 않는다', async () => {
+      const { createNote, onDone } = setup({ isCreating: true });
+      await userEvent.type(screen.getByPlaceholderText('내용을 입력하세요...'), '내용만');
+
+      await clickSave();
+
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+      expect(createNote).not.toHaveBeenCalled();
+      expect(onDone).not.toHaveBeenCalled();
+    });
+
+    it('Confirm/Alert는 화면 전체를 덮는 오버레이 안에 뜬다', async () => {
+      setup({ selectedNoteId: 'n1' });
+
+      await clickSave();
+
+      expect(screen.getByRole('alert').closest('.fixed')).toHaveClass('inset-0');
+    });
   });
 
   it('취소를 누르면 onDone을 호출한다', async () => {
