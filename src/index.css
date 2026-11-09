@@ -1,14 +1,6 @@
 @import 'tailwindcss';
 
 @theme {
-  --color-background: hsl(0 0% 94%);
-  --color-card: hsl(0 0% 100%);
-  --color-foreground: hsl(220 35% 14%);
-  --color-muted: hsl(0 0% 90%);
-  --color-muted-foreground: hsl(0 0% 42%);
-  --color-border: hsl(0 0% 88%);
-  --color-destructive: hsl(0 84% 60%);
-
   /* 디자인 시스템 토큰 (원본: docs/design-system/foundations/tokens.json) */
   --color-surface: #f8f9fa;
   --color-surface-container-low: #f1f4f6;
@@ -31,10 +23,7 @@
   --color-status-warning-container: #fbeccb;
   --color-status-error-container: #fadcd9;
 
-  --font-sans: 'Pretendard Variable', system-ui, sans-serif;
-  --font-display: 'Boogaloo', sans-serif;
-
-  --radius: 0.75rem;
+  --font-sans: 'Inter Variable', 'Inter', 'Pretendard Variable', system-ui, sans-serif;
 }
 
 @layer base {
@@ -44,8 +33,8 @@
 
   body {
     font-family: var(--font-sans);
-    background-color: var(--color-background);
-    color: var(--color-foreground);
+    background-color: var(--color-surface);
+    color: var(--color-on-surface);
     margin: 0;
   }
 }
