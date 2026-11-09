@@ -75,7 +75,7 @@
 
 ## 구현 원칙
 
-- 상태별 스타일 맵(헤더 클래스, 확인 버튼 클래스)은 Alert와 Confirm에서 **한 곳에서만 정의**하고 공유한다. 현재 `HEADER_STYLES`가 두 파일에 중복되어 있다.
+- 상태별 스타일 맵(헤더 클래스, 확인 버튼 클래스)은 Alert와 Confirm에서 **한 곳에서만 정의**하고 공유한다. `src/components/statusStyles.ts`의 `HEADER_STYLES`, `CONFIRM_STYLES`를 쓴다.
 - Tailwind가 클래스를 감지할 수 있도록 상태 클래스는 전체 문자열로 작성한다 (`` `bg-status-${variant}` `` 같은 조합 금지).
 - `variant`의 기본값은 Alert `info`, Confirm `warning`이다.
 
