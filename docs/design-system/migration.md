@@ -18,6 +18,19 @@
 | [ ]  | 아이콘/이모지         | `NoteEditor` 빈 화면의 📝                                                                                   | 기능적으로 꼭 필요할 때만 사용                                                                           |
 | [ ]  | `@theme` 토큰         | `src/index.css`의 기존 토큰(`--color-card` 등)                                                              | `foundations/tokens.json` 기준 토큰으로 대체                                                             |
 
+## 컴포넌트별 진행
+
+위 표의 항목은 여러 컴포넌트에 걸쳐 있다. 컴포넌트를 하나씩 처리하고 여기에 기록하며, 모든 컴포넌트가 끝나면 위 표의 해당 항목을 `[x]`로 바꾼다.
+
+| 상태 | 컴포넌트              | 처리 내용                                                                         |
+| ---- | --------------------- | --------------------------------------------------------------------------------- |
+| [x]  | `@theme` 토큰 추가    | `src/index.css`에 `tokens.json` 색상 토큰 20개 추가 (기존 토큰은 마지막에 제거)   |
+| [x]  | `Layout`              | 구분선·그림자·이모지·Boogaloo 제거, Primary 그라데이션 버튼, 배경색으로 영역 구분 |
+| [ ]  | `NoteItem`/`NoteList` |                                                                                   |
+| [ ]  | `NoteEditor`          |                                                                                   |
+| [ ]  | `Alert`/`Confirm`     |                                                                                   |
+| [ ]  | 폰트·토큰 정리        | Inter(+Pretendard) 전환, 쓰지 않게 된 기존 `@theme` 토큰 제거                     |
+
 ## 처리 순서 제안
 
 Layout → NoteItem → NoteEditor → Alert/Confirm. 파일 하나씩 처리하고 `npm test`, `npm run lint`, `npx tsc --noEmit`을 확인한다.

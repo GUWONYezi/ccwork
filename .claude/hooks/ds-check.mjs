@@ -24,6 +24,8 @@ try {
 
 const file = String(input?.tool_input?.file_path ?? '').replace(/\\/g, '/');
 if (!/\/src\/.*\.(tsx|css)$/.test(file)) process.exit(0);
+// 테스트 파일은 금지 패턴을 "쓰지 않는지" 검사하는 문자열을 담으므로 제외한다.
+if (/\.test\.tsx$/.test(file)) process.exit(0);
 
 let source;
 try {
