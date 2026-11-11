@@ -45,6 +45,10 @@ src/
 │                             #   · 마운트 시 fetchNotes로 초기 로딩
 │                             #   · 서버 응답 후 로컬 상태 갱신 (낙관적 업데이트 없음)
 │                             #   · useNotes()는 Provider 밖에서 호출 시 throw
+├── hooks/                    # [태그 기능에서 도입] 컴포넌트 상태 + 동작을 캡슐화한 커스텀 훅
+│   └── useTagEditor.ts       #   태그 입력창 열림/입력값/안내 문구/태그 배열 상태와 add/remove/reset
+├── utils/                    # [태그 기능에서 도입] 상태 없는 순수 함수 (렌더링 없이 단위 테스트)
+│   └── tags.ts               #   validateTag: trim/빈 값/중복/길이/개수 검사
 ├── api/
 │   └── notes.ts              # fetch 래퍼, API_URL=http://localhost:3001 하드코딩
 │                             #   · createdAt/updatedAt은 클라이언트에서 생성
@@ -64,11 +68,12 @@ src/
 - 레이아웃 컴포넌트는 `ReactNode` 슬롯 props(`sidebar`, `main`)로 자식을 받는다.
 - 조건부 렌더링은 early return (`loading` → `error` → empty → 본문 순서).
 - JSX 구획은 `{/* 제목 */}` 형태의 한국어 주석으로 나눈다.
+- **분리 원칙** (ADR-002, `docs/features/tag/prd.md`): 새 컴포넌트/기능은 확장 용이성을 위해 **규칙 / 상태 / 표현**으로 나눈다. 상태 없는 검증·변환은 `utils/*.ts` 순수 함수, 컴포넌트 로컬 상태와 동작이 둘 이상이면 `hooks/use*.ts` 커스텀 훅, UI 조각은 props만 받는 순수 컴포넌트로 둔다. `useNotes()` 호출은 최상위 조립 컴포넌트에서만 한다. 상태/동작이 둘 이상이거나 규칙이 둘 이상일 때만 분리하고, 기존 컴포넌트는 수정할 때 점진적으로 맞춘다.
 - **NoteEditor 폼 동기화**: `selectedNoteId`/`isCreating` 변경 시 `useEffect`로 로컬 `title/content`를 리셋. 의존성에 `selectedNote`를 의도적으로 뺐기에 `eslint-disable-line react-hooks/exhaustive-deps`가 붙어 있다.
 
 ### 상태관리 방식
 
-- 외부 라이브러리 없이 **React 내장 `useState` + Context**만 사용 (reducer, memo 계열 훅 없음).
+- 외부 라이브러리 없이 **React 내장 `useState` + Context**만 사용 (reducer, memo 계열 훅 없음). 컴포넌트 로컬 상태가 복잡하면 내장 훅을 조합한 커스텀 훅(`hooks/use*.ts`)으로 묶는다.
 - 서버 데이터(`notes/loading/error`) → `NotesContext`. UI 선택 상태(`selectedNoteId`, `isCreating`) → `App`의 `useState` 후 props drilling. 폼 입력(`title/content/saving`) → `NoteEditor` 로컬 `useState`.
 - 변경 후에는 서버 응답으로 로컬 배열을 갱신(`[...prev, new]`, `map`, `filter`)하며, 재조회(refetch)는 하지 않는다.
 
@@ -81,7 +86,7 @@ src/
 
 ### 네이밍 패턴
 
-- 파일: 컴포넌트·Context는 `PascalCase.tsx`, API·타입은 `camelCase.ts`.
+- 파일: 컴포넌트·Context는 `PascalCase.tsx`, API·타입·유틸은 `camelCase.ts`, 커스텀 훅은 `use` 접두어의 `useXxx.ts`(`hooks/`에 두고 export명과 파일명 일치).
 - Props 콜백은 `onXxx` (`onSelect`, `onDelete`, `onDone`, `onNewNote`), 이를 구현하는 핸들러는 `handleXxx` (`handleSave`, `handleSelectNote`).
 - 불리언 상태는 `isXxx` (`isCreating`, `isSelected`), 단 `loading`/`saving`은 예외.
 - 인터페이스는 `XxxProps`, `XxxContextType`. 타입 파일은 단수형(`note.ts`).

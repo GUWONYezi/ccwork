@@ -83,13 +83,18 @@
 CLAUDE.md의 확장 순서를 따른다.
 
 1. `types/note.ts` — `tags?: string[]` 추가, 기존 "tags 필드는 아직 없음" 주석 정리
-2. `api/notes.ts` — 생성/수정 payload에 `tags` 반영
-3. `context/NotesContext.tsx` — `addNote`/`editNote`가 `tags`를 받도록 확장
-4. `components/Tag.tsx` — 신규
-5. `components/NoteEditor.tsx` — 태그 추가 버튼/입력창/목록, 유효성, 리셋
-6. `components/NoteItem.tsx` — 태그 아이콘 + 개수 표시
+2. `api/notes.ts` — 타입(`Partial<Note>`, `Omit<Note, ...>`)이 `tags`를 그대로 통과시키므로 코드 변경 최소. 테스트로 payload에 `tags`가 포함되는지 확인
+3. `context/NotesContext.tsx` — `createNote`가 `tags`를 받도록 확장 (`updateNote`는 이미 `Partial<Note>`라 변경 없음)
+4. `utils/tags.ts` — 신규. `validateTag(input, existing)` 순수 함수 (trim, 빈 값, 중복, 길이, 개수)
+5. `components/Tag.tsx` — 신규
+6. `components/TagInput.tsx`, `components/TagList.tsx` — 신규. props만 받는 순수 표현 컴포넌트
+7. `hooks/useTagEditor.ts` — 신규. `tags`, 입력창 열림, 입력값, 안내 문구 상태와 `toggleInput`/`changeInput`/`addTag`/`removeTag`/`reset`
+8. `components/NoteEditor.tsx` — `useTagEditor` 호출 후 `TagInput`/`TagList` 조립, 저장 시 `tags` 전달, 노트 전환 시 `reset`
+9. `components/NoteItem.tsx` — 태그 아이콘 + 개수 표시
 
 TDD로 진행하며, 태그가 없는 기존 노트를 열어도 에러가 나지 않는지 테스트에 포함한다.
+
+> 구조 결정 근거는 `prd.md`의 ADR-001(규칙 `utils` / 상태 `hooks` / 표현 컴포넌트 분리), ADR-002(컴포넌트 개발 원칙) 참고. 위 UI 명세의 동작은 그대로이며, `NoteEditor`에 직접 두려던 로직의 위치만 `utils/tags.ts`와 `hooks/useTagEditor.ts`로 바뀌었다. `TagInput`(입력창, 안내 문구)과 `TagList`(`flex-wrap` 목록)는 NoteEditor 명세의 해당 부분을 담당하는 컴포넌트이다.
 
 ## 비고
 
