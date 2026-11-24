@@ -246,4 +246,139 @@ describe('useTagEditor', () => {
       expect(result.current.tags).toEqual(['a', 'b']);
     });
   });
+
+  describe('errorMessage (이슈 3)', () => {
+    const DUP = '이미 있는 태그입니다';
+
+    function setupWith(initialTags: string[]) {
+      const hook = renderHook(() => useTagEditor());
+      act(() => hook.result.current.reset(initialTags));
+      return hook;
+    }
+
+    // 이슈 3 H1
+    it('should errorMessage가 null로 시작 when 마운트', () => {
+      const { result } = renderHook(() => useTagEditor());
+
+      expect(result.current.errorMessage).toBeNull();
+    });
+
+    // 이슈 3 H2
+    it("should tags를 바꾸지 않고 errorMessage를 '이미 있는 태그입니다'로 when 이미 있는 'react'를 입력", () => {
+      const { result } = setupWith(['react']);
+
+      addTagByTyping(result, 'react');
+
+      expect(result.current.tags).toEqual(['react']);
+      expect(result.current.errorMessage).toBe(DUP);
+    });
+
+    // 이슈 3 H3
+    it("should 중복으로 거절 when 대소문자만 다른 'React' (기존 'react')", () => {
+      const { result } = setupWith(['react']);
+
+      addTagByTyping(result, 'React');
+
+      expect(result.current.tags).toEqual(['react']);
+      expect(result.current.errorMessage).toBe(DUP);
+    });
+
+    // 이슈 3 H4
+    it('should inputValue를 비우지 않고 유지 when 중복으로 거절', () => {
+      const { result } = setupWith(['react']);
+
+      addTagByTyping(result, 'React');
+
+      expect(result.current.inputValue).toBe('React');
+    });
+
+    // 이슈 3 H5
+    it("should 처음 입력한 표기를 유지(tags ['React']) when 'React' 뒤에 'react' 입력", () => {
+      const { result } = renderHook(() => useTagEditor());
+
+      addTagByTyping(result, 'React');
+      addTagByTyping(result, 'react');
+
+      expect(result.current.tags).toEqual(['React']);
+    });
+
+    // 이슈 3 H6
+    it('should errorMessage를 null로 when 안내 문구가 있는 상태에서 값을 변경', () => {
+      const { result } = setupWith(['react']);
+      addTagByTyping(result, 'react');
+
+      act(() => result.current.changeInput('reac'));
+
+      expect(result.current.errorMessage).toBeNull();
+    });
+
+    // 이슈 3 H7
+    it('should errorMessage를 유지 when 거절 직후 값을 수정하지 않고 다시 addTag', () => {
+      const { result } = setupWith(['react']);
+      addTagByTyping(result, 'react');
+
+      act(() => result.current.addTag());
+
+      expect(result.current.errorMessage).toBe(DUP);
+    });
+
+    // 이슈 3 H8
+    it('should errorMessage를 바꾸지 않음 when 빈 값 입력(문구 없음/있음 모두)', () => {
+      const { result } = setupWith(['react']);
+      act(() => result.current.changeInput('   '));
+      act(() => result.current.addTag());
+      expect(result.current.errorMessage).toBeNull();
+
+      addTagByTyping(result, 'react');
+      expect(result.current.errorMessage).toBe(DUP);
+      act(() => result.current.addTag());
+      expect(result.current.errorMessage).toBe(DUP);
+    });
+
+    // 이슈 3 H9
+    it('should errorMessage를 null로 when 안내 문구가 있는 상태에서 reset 호출', () => {
+      const { result } = setupWith(['react']);
+      addTagByTyping(result, 'react');
+
+      act(() => result.current.reset(['vue']));
+
+      expect(result.current.errorMessage).toBeNull();
+    });
+
+    // 이슈 3 H10
+    it('should errorMessage를 유지 when 문구가 있는 상태에서 입력창을 닫음', () => {
+      const { result } = setupWith(['react']);
+      act(() => result.current.toggleInput());
+      addTagByTyping(result, 'react');
+
+      act(() => result.current.toggleInput());
+
+      expect(result.current.isInputOpen).toBe(false);
+      expect(result.current.errorMessage).toBe(DUP);
+    });
+
+    // 이슈 3 H11
+    it("should 다시 추가할 수 있음 when 'react'를 removeTag로 삭제한 뒤 'react'를 입력 (existing은 현재 tags 기준)", () => {
+      const { result } = setupWith(['react']);
+      act(() => result.current.removeTag(0));
+
+      addTagByTyping(result, 'react');
+
+      expect(result.current.tags).toEqual(['react']);
+      expect(result.current.errorMessage).toBeNull();
+    });
+
+    // 이슈 3 H12
+    it('should errorMessage를 null로 when 중복으로 거절된 뒤 해당 태그를 removeTag로 삭제하고 같은 입력값으로 다시 addTag', () => {
+      const { result } = setupWith(['react']);
+      addTagByTyping(result, 'react');
+      expect(result.current.errorMessage).toBe(DUP);
+      act(() => result.current.removeTag(0));
+
+      act(() => result.current.addTag());
+
+      expect(result.current.tags).toEqual(['react']);
+      expect(result.current.errorMessage).toBeNull();
+    });
+  });
 });

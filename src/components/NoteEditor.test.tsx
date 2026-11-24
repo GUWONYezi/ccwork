@@ -467,3 +467,143 @@ describe('NoteEditor 태그 삭제', () => {
     expect(screen.getByText('design')).toBeInTheDocument();
   });
 });
+
+describe('NoteEditor 중복 태그 (이슈 3)', () => {
+  const DUP = '이미 있는 태그입니다';
+  let serverNotes: Note[];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    serverNotes = [
+      createTestNote({ id: 'test-1', title: '제목 A', content: '내용 A', tags: ['react'] }),
+      createTestNote({ id: 'test-2', title: '제목 B', content: '내용 B' }),
+    ];
+    vi.mocked(api.fetchNotes).mockImplementation(async () => serverNotes);
+    vi.mocked(api.updateNote).mockImplementation(async (id, updates) => {
+      const updated = { ...serverNotes.find((n) => n.id === id)!, ...updates };
+      serverNotes = serverNotes.map((n) => (n.id === id ? updated : n));
+      return updated;
+    });
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  async function openInput(
+    user: ReturnType<typeof userEvent.setup>,
+    selectNote: (id: string | null) => void,
+    id = 'test-1',
+  ) {
+    selectNote(id);
+    await user.click(await screen.findByRole('button', { name: '태그 추가' }));
+  }
+
+  // 이슈 3 E1
+  it('should 태그가 하나만 남고 입력창 아래에 "이미 있는 태그입니다"를 표시 when 이미 있는 태그를 입력하고 Enter', async () => {
+    const user = userEvent.setup();
+    const { selectNote } = await renderEditor();
+    await openInput(user, selectNote);
+
+    await addTag(user, 'react');
+
+    expect(screen.getAllByText('react')).toHaveLength(1);
+    expect(screen.getByRole('alert')).toHaveTextContent(DUP);
+  });
+
+  // 이슈 3 E2
+  it('should 추가하지 않고 문구를 표시 when 대소문자만 다른 태그를 입력하고 Enter', async () => {
+    const user = userEvent.setup();
+    const { selectNote } = await renderEditor();
+    await openInput(user, selectNote);
+
+    await addTag(user, 'React');
+
+    expect(screen.queryByText('React', { selector: 'span' })).not.toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(DUP);
+  });
+
+  // 이슈 3 E3
+  it("should 'React'가 유지되고 updateNote가 tags ['React']로 호출 when 'React' 뒤에 'react'를 입력하고 저장", async () => {
+    const user = userEvent.setup();
+    const { selectNote } = await renderEditor();
+    await openInput(user, selectNote, 'test-2');
+    await addTag(user, 'React');
+    await addTag(user, 'react');
+
+    await user.click(screen.getByRole('button', { name: '저장' }));
+
+    expect(api.updateNote).toHaveBeenCalledWith('test-2', {
+      title: '제목 B',
+      content: '내용 B',
+      tags: ['React'],
+    });
+  });
+
+  // 이슈 3 E4
+  it('should 문구가 사라지고 태그가 추가됨 when 거절 후 입력값을 수정해 다시 Enter', async () => {
+    const user = userEvent.setup();
+    const { selectNote } = await renderEditor();
+    await openInput(user, selectNote);
+    await addTag(user, 'react');
+    expect(screen.getByRole('alert')).toHaveTextContent(DUP);
+
+    await user.clear(screen.getByLabelText('태그 입력'));
+    await addTag(user, 'vue');
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByText('vue')).toBeInTheDocument();
+  });
+
+  // 이슈 3 E5
+  it('should 입력창 값을 비우지 않음 when 중복으로 거절', async () => {
+    const user = userEvent.setup();
+    const { selectNote } = await renderEditor();
+    await openInput(user, selectNote);
+
+    await addTag(user, 'react');
+
+    expect(screen.getByLabelText('태그 입력')).toHaveValue('react');
+  });
+
+  // 이슈 3 E6
+  it('should 안내 문구가 사라짐 when 문구가 표시된 상태에서 입력창에 타이핑', async () => {
+    const user = userEvent.setup();
+    const { selectNote } = await renderEditor();
+    await openInput(user, selectNote);
+    await addTag(user, 'react');
+    expect(screen.getByRole('alert')).toHaveTextContent(DUP);
+
+    await user.type(screen.getByLabelText('태그 입력'), 's');
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  // 이슈 3 E7
+  it('should 안내 문구가 표시되지 않음 when 중복 거절 상태에서 다른 노트를 갔다가 돌아와 입력창을 다시 엶', async () => {
+    const user = userEvent.setup();
+    const { selectNote } = await renderEditor();
+    await openInput(user, selectNote);
+    await addTag(user, 'react');
+    expect(screen.getByRole('alert')).toHaveTextContent(DUP);
+
+    selectNote('test-2');
+    await screen.findByDisplayValue('제목 B');
+    selectNote('test-1');
+    await screen.findByDisplayValue('제목 A');
+    await user.click(screen.getByRole('button', { name: '태그 추가' }));
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  // 이슈 3 E8
+  it('should 문구가 다시 보임 when 중복 거절 후 입력창을 "닫기"로 닫았다가 다시 엶', async () => {
+    const user = userEvent.setup();
+    const { selectNote } = await renderEditor();
+    await openInput(user, selectNote);
+    await addTag(user, 'react');
+
+    await user.click(screen.getByRole('button', { name: '닫기' }));
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '태그 추가' }));
+
+    expect(screen.getByRole('alert')).toHaveTextContent(DUP);
+  });
+});
