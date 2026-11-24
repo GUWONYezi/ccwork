@@ -9,6 +9,7 @@ export interface UseTagEditorResult {
   changeInput: (value: string) => void;
   addTag: () => void; // inputValue를 검증해 추가한다. Enter에서 호출된다
   reset: (initialTags: string[]) => void; // tags 교체 + 입력창 닫기 + inputValue 비우기
+  removeTag: (index: number) => void; // tags에서 해당 위치의 태그를 제거한다
 }
 
 export function useTagEditor(): UseTagEditorResult {
@@ -33,5 +34,7 @@ export function useTagEditor(): UseTagEditorResult {
     setInputValue('');
   };
 
-  return { tags, isInputOpen, inputValue, toggleInput, changeInput, addTag, reset };
+  const removeTag = (index: number) => setTags((prev) => prev.filter((_, i) => i !== index));
+
+  return { tags, isInputOpen, inputValue, toggleInput, changeInput, addTag, reset, removeTag };
 }

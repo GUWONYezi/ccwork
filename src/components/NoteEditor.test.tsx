@@ -311,3 +311,159 @@ describe('NoteEditor 태그', () => {
     expect(api.updateNote).not.toHaveBeenCalled();
   });
 });
+
+describe('NoteEditor 태그 삭제', () => {
+  let serverNotes: Note[];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    serverNotes = [
+      createTestNote({
+        id: 'test-1',
+        title: '제목 A',
+        content: '내용 A',
+        tags: ['react', 'design'],
+      }),
+      createTestNote({ id: 'test-2', title: '제목 B', content: '내용 B' }),
+    ];
+    vi.mocked(api.fetchNotes).mockImplementation(async () => serverNotes);
+    vi.mocked(api.updateNote).mockImplementation(async (id, updates) => {
+      const updated = { ...serverNotes.find((n) => n.id === id)!, ...updates };
+      serverNotes = serverNotes.map((n) => (n.id === id ? updated : n));
+      return updated;
+    });
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  // 이슈 2 E1
+  it('should 클릭한 태그가 목록에서 즉시 사라지고 나머지는 남음 when 태그가 있는 노트에서 삭제 버튼을 클릭', async () => {
+    const user = userEvent.setup();
+    const { selectNote } = await renderEditor();
+    selectNote('test-1');
+
+    await user.click(await screen.findByRole('button', { name: 'react 태그 삭제' }));
+
+    expect(screen.queryByText('react')).not.toBeInTheDocument();
+    expect(screen.getByText('design')).toBeInTheDocument();
+  });
+
+  // 이슈 2 E2
+  it('should updateNote를 삭제된 tags를 포함한 { title, content, tags }로 호출 when 태그를 삭제하고 "저장"을 클릭', async () => {
+    const user = userEvent.setup();
+    const { selectNote } = await renderEditor();
+    selectNote('test-1');
+    await user.click(await screen.findByRole('button', { name: 'react 태그 삭제' }));
+
+    await user.click(screen.getByRole('button', { name: '저장' }));
+
+    expect(api.updateNote).toHaveBeenCalledWith('test-1', {
+      title: '제목 A',
+      content: '내용 A',
+      tags: ['design'],
+    });
+  });
+
+  // 이슈 2 E3
+  it('should 삭제 시점에는 updateNote를 호출하지 않음 when 삭제 버튼만 클릭 (저장 전 서버 미반영)', async () => {
+    const user = userEvent.setup();
+    const { selectNote } = await renderEditor();
+    selectNote('test-1');
+
+    await user.click(await screen.findByRole('button', { name: 'react 태그 삭제' }));
+
+    expect(api.updateNote).not.toHaveBeenCalled();
+  });
+
+  // 이슈 2 E4
+  it('should 삭제가 버려지고 원래 태그가 표시되며 확인창이 뜨지 않음 when 태그를 삭제한 뒤 저장하지 않고 다른 노트로 갔다가 돌아옴', async () => {
+    const user = userEvent.setup();
+    const { selectNote } = await renderEditor();
+    selectNote('test-1');
+    await user.click(await screen.findByRole('button', { name: 'react 태그 삭제' }));
+
+    selectNote('test-2');
+    await screen.findByDisplayValue('제목 B');
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    selectNote('test-1');
+
+    expect(await screen.findByDisplayValue('제목 A')).toBeInTheDocument();
+    expect(screen.getByText('react')).toBeInTheDocument();
+    expect(screen.getByText('design')).toBeInTheDocument();
+  });
+
+  // 이슈 2 E5
+  it('should 저장한 삭제 결과를 표시 when 저장 후 다른 노트를 거쳐 다시 선택', async () => {
+    const user = userEvent.setup();
+    const { selectNote } = await renderEditor();
+    selectNote('test-1');
+    await user.click(await screen.findByRole('button', { name: 'react 태그 삭제' }));
+    await user.click(screen.getByRole('button', { name: '저장' }));
+
+    selectNote('test-2');
+    await screen.findByDisplayValue('제목 B');
+    selectNote('test-1');
+
+    expect(await screen.findByDisplayValue('제목 A')).toBeInTheDocument();
+    expect(screen.queryByText('react')).not.toBeInTheDocument();
+    expect(screen.getByText('design')).toBeInTheDocument();
+  });
+
+  // 이슈 2 E6
+  it('should 방금 추가한 태그도 삭제 가능 when 입력창에서 추가한 태그의 삭제 버튼을 클릭', async () => {
+    const user = userEvent.setup();
+    const { selectNote } = await renderEditor();
+    selectNote('test-1');
+    await user.click(await screen.findByRole('button', { name: '태그 추가' }));
+    await addTag(user, 'vue');
+
+    await user.click(screen.getByRole('button', { name: 'vue 태그 삭제' }));
+
+    expect(screen.queryByText('vue')).not.toBeInTheDocument();
+  });
+
+  // 이슈 2 E7
+  it('should 태그 목록 영역에 아무것도 표시하지 않음 when 모든 태그를 삭제', async () => {
+    const user = userEvent.setup();
+    const { selectNote } = await renderEditor();
+    selectNote('test-1');
+    await user.click(await screen.findByRole('button', { name: 'react 태그 삭제' }));
+
+    await user.click(screen.getByRole('button', { name: 'design 태그 삭제' }));
+
+    expect(screen.queryByText('react')).not.toBeInTheDocument();
+    expect(screen.queryByText('design')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /태그 삭제$/ })).not.toBeInTheDocument();
+  });
+
+  // 이슈 2 E8
+  it('should tags: []로 updateNote를 호출 when 모든 태그를 삭제하고 저장', async () => {
+    const user = userEvent.setup();
+    const { selectNote } = await renderEditor();
+    selectNote('test-1');
+    await user.click(await screen.findByRole('button', { name: 'react 태그 삭제' }));
+    await user.click(screen.getByRole('button', { name: 'design 태그 삭제' }));
+
+    await user.click(screen.getByRole('button', { name: '저장' }));
+
+    expect(api.updateNote).toHaveBeenCalledWith('test-1', {
+      title: '제목 A',
+      content: '내용 A',
+      tags: [],
+    });
+  });
+
+  // 이슈 2 E9
+  it('should 삭제된 상태의 tags를 유지하고 onDone을 호출하지 않음 when 삭제 후 저장 중 updateNote가 reject', async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.updateNote).mockRejectedValue(new Error('Failed to update note'));
+    const { selectNote, onDone } = await renderEditor();
+    selectNote('test-1');
+    await user.click(await screen.findByRole('button', { name: 'react 태그 삭제' }));
+
+    await user.click(screen.getByRole('button', { name: '저장' }));
+
+    expect(onDone).not.toHaveBeenCalled();
+    expect(screen.queryByText('react')).not.toBeInTheDocument();
+    expect(screen.getByText('design')).toBeInTheDocument();
+  });
+});

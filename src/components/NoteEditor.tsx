@@ -15,7 +15,8 @@ export function NoteEditor({ selectedNoteId, isCreating, onDone }: NoteEditorPro
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [saving, setSaving] = useState(false);
-  const { tags, isInputOpen, inputValue, toggleInput, changeInput, addTag, reset } = useTagEditor();
+  const { tags, isInputOpen, inputValue, toggleInput, changeInput, addTag, reset, removeTag } =
+    useTagEditor();
 
   const selectedNote = notes.find((n) => n.id === selectedNoteId);
 
@@ -90,7 +91,7 @@ export function NoteEditor({ selectedNoteId, isCreating, onDone }: NoteEditorPro
             onChange={changeInput}
             onSubmit={addTag}
           />
-          <TagList tags={tags} />
+          <TagList tags={tags} onDelete={removeTag} />
         </div>
       )}
 
