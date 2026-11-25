@@ -607,3 +607,160 @@ describe('NoteEditor 중복 태그 (이슈 3)', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(DUP);
   });
 });
+
+describe('NoteEditor 태그 길이/개수 제한 (이슈 4)', () => {
+  const LEN_MSG = '태그는 최대 50자까지 입력할 수 있습니다';
+  const COUNT_MSG = '태그는 최대 10개까지 추가할 수 있습니다';
+  const tagsOf = (count: number) => Array.from({ length: count }, (_, i) => `tag${i}`);
+  let serverNotes: Note[];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    serverNotes = [
+      createTestNote({ id: 'test-1', title: '제목 A', content: '내용 A', tags: tagsOf(10) }),
+      createTestNote({ id: 'test-2', title: '제목 B', content: '내용 B', tags: tagsOf(9) }),
+      createTestNote({ id: 'test-3', title: '제목 C', content: '내용 C' }), // tags 필드 없음
+    ];
+    vi.mocked(api.fetchNotes).mockImplementation(async () => serverNotes);
+    vi.mocked(api.updateNote).mockImplementation(async (id, updates) => {
+      const updated = { ...serverNotes.find((n) => n.id === id)!, ...updates };
+      serverNotes = serverNotes.map((n) => (n.id === id ? updated : n));
+      return updated;
+    });
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  async function openInput(
+    user: ReturnType<typeof userEvent.setup>,
+    selectNote: (id: string | null) => void,
+    id: string,
+  ) {
+    selectNote(id);
+    await user.click(await screen.findByRole('button', { name: '태그 추가' }));
+  }
+
+  // 이슈 4 E1
+  it('should 태그가 추가되지 않고 입력창 아래에 "태그는 최대 50자까지 입력할 수 있습니다"를 표시 when 51자를 입력하고 Enter', async () => {
+    const user = userEvent.setup();
+    const { selectNote } = await renderEditor();
+    await openInput(user, selectNote, 'test-3');
+    const longTag = 'a'.repeat(51);
+
+    await addTag(user, longTag);
+
+    expect(screen.queryByText(longTag)).not.toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(LEN_MSG);
+  });
+
+  // 이슈 4 E2
+  // 회귀 테스트: 기존 NoteEditor가 50자 태그를 이미 추가한다(제한이 아직 없음). Red 단계에서도 통과한다.
+  it('should 태그가 추가되고 안내 문구가 없음 when 50자를 입력하고 Enter', async () => {
+    const user = userEvent.setup();
+    const { selectNote } = await renderEditor();
+    await openInput(user, selectNote, 'test-3');
+    const tag = 'a'.repeat(50);
+
+    await addTag(user, tag);
+
+    expect(screen.getByText(tag)).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  // 이슈 4 E3
+  it('should 태그가 추가되지 않고 "태그는 최대 10개까지 추가할 수 있습니다"를 표시 when 태그 10개인 노트에서 입력하고 Enter', async () => {
+    const user = userEvent.setup();
+    const { selectNote } = await renderEditor();
+    await openInput(user, selectNote, 'test-1');
+
+    await addTag(user, 'vue');
+
+    expect(screen.queryByText('vue')).not.toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(COUNT_MSG);
+  });
+
+  // 이슈 4 E4
+  // 회귀 테스트: 기존 NoteEditor가 10번째 태그를 이미 추가한다(제한이 아직 없음). Red 단계에서도 통과한다.
+  it('should 10번째 태그가 추가됨 when 태그 9개인 노트에서 입력하고 Enter', async () => {
+    const user = userEvent.setup();
+    const { selectNote } = await renderEditor();
+    await openInput(user, selectNote, 'test-2');
+
+    await addTag(user, 'vue');
+
+    expect(screen.getByText('vue')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  // 이슈 4 E5
+  it('should 입력창 값을 비우지 않음 when 길이 초과로 거절', async () => {
+    const user = userEvent.setup();
+    const { selectNote } = await renderEditor();
+    await openInput(user, selectNote, 'test-3');
+    const longTag = 'a'.repeat(51);
+
+    await addTag(user, longTag);
+
+    expect(screen.getByLabelText('태그 입력')).toHaveValue(longTag);
+  });
+
+  // 이슈 4 E6
+  it('should 입력창 값을 비우지 않음 when 개수 초과로 거절', async () => {
+    const user = userEvent.setup();
+    const { selectNote } = await renderEditor();
+    await openInput(user, selectNote, 'test-1');
+
+    await addTag(user, 'vue');
+
+    expect(screen.getByLabelText('태그 입력')).toHaveValue('vue');
+  });
+
+  // 이슈 4 E7
+  it('should 안내 문구가 사라짐 when 길이/개수 초과 문구가 표시된 상태에서 입력창에 타이핑', async () => {
+    const user = userEvent.setup();
+    const { selectNote } = await renderEditor();
+    await openInput(user, selectNote, 'test-1');
+    await addTag(user, 'a'.repeat(51));
+    expect(screen.getByRole('alert')).toHaveTextContent(LEN_MSG);
+    await user.type(screen.getByLabelText('태그 입력'), 's');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+
+    await user.clear(screen.getByLabelText('태그 입력'));
+    await addTag(user, 'vue');
+    expect(screen.getByRole('alert')).toHaveTextContent(COUNT_MSG);
+    await user.type(screen.getByLabelText('태그 입력'), 's');
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  // 이슈 4 E8
+  it('should 태그가 추가됨 when 10개 노트에서 태그 하나를 삭제한 뒤 입력하고 Enter', async () => {
+    const user = userEvent.setup();
+    const { selectNote } = await renderEditor();
+    await openInput(user, selectNote, 'test-1');
+    await addTag(user, 'vue');
+    expect(screen.queryByText('vue')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'tag0 태그 삭제' }));
+
+    await user.type(screen.getByLabelText('태그 입력'), '{Enter}');
+
+    expect(screen.getByText('vue')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  // 이슈 4 E9
+  it('should updateNote의 tags에 초과 입력이 포함되지 않음 when 길이 초과로 거절된 뒤 저장', async () => {
+    const user = userEvent.setup();
+    const { selectNote } = await renderEditor();
+    await openInput(user, selectNote, 'test-3');
+    await addTag(user, 'a'.repeat(51));
+    expect(screen.getByRole('alert')).toHaveTextContent(LEN_MSG);
+
+    await user.click(screen.getByRole('button', { name: '저장' }));
+
+    expect(api.updateNote).toHaveBeenCalledWith('test-3', {
+      title: '제목 C',
+      content: '내용 C',
+      tags: [],
+    });
+  });
+});
