@@ -13,5 +13,13 @@ export function validateTag(input: string, existing: string[]): TagValidationRes
     return { canAdd: false, tag, message: '이미 있는 태그입니다' };
   }
 
+  if (tag.length > 50) {
+    return { canAdd: false, tag, message: '태그는 최대 50자까지 입력할 수 있습니다' };
+  }
+
+  if (existing.length >= 10) {
+    return { canAdd: false, tag, message: '태그는 최대 10개까지 추가할 수 있습니다' };
+  }
+
   return { canAdd: true, tag, message: null };
 }
