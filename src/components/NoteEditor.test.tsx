@@ -764,3 +764,257 @@ describe('NoteEditor 태그 길이/개수 제한 (이슈 4)', () => {
     });
   });
 });
+
+describe('NoteEditor 새 노트 태그 (이슈 5)', () => {
+  let serverNotes: Note[];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    serverNotes = [
+      createTestNote({ id: 'test-1', title: '제목 A', content: '내용 A', tags: ['design'] }),
+      createTestNote({ id: 'test-2', title: '제목 B', content: '내용 B' }),
+    ];
+    vi.mocked(api.fetchNotes).mockImplementation(async () => serverNotes);
+    vi.mocked(api.createNote).mockImplementation(async (note) => {
+      const created: Note = {
+        id: 'test-new',
+        createdAt: '2025-01-15T09:00:00.000Z',
+        updatedAt: '2025-01-15T09:00:00.000Z',
+        ...note,
+      };
+      serverNotes = [...serverNotes, created];
+      return created;
+    });
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  // 새 노트 작성 모드(isCreating)로 전환할 수 있는 렌더 헬퍼
+  async function renderCreating(onDone = vi.fn()) {
+    const ui = (selectedNoteId: string | null, isCreating: boolean) => (
+      <NotesProvider>
+        <NoteEditor selectedNoteId={selectedNoteId} isCreating={isCreating} onDone={onDone} />
+      </NotesProvider>
+    );
+    const view = render(ui(null, false));
+    await act(async () => {}); // fetchNotes 응답 반영
+    const setMode = (selectedNoteId: string | null, isCreating: boolean) =>
+      view.rerender(ui(selectedNoteId, isCreating));
+    setMode(null, true);
+    return { setMode, onDone };
+  }
+
+  async function openInput(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByRole('button', { name: '태그 추가' }));
+  }
+
+  // 이슈 5 E1
+  it('should "태그 추가" 버튼을 표시 when 새 노트 작성 모드(isCreating)', async () => {
+    await renderCreating();
+
+    expect(screen.getByRole('button', { name: '태그 추가' })).toBeInTheDocument();
+  });
+
+  // 이슈 5 E2
+  it('should 입력창을 열고 버튼명을 "닫기"로 바꿨다가, 다시 "닫기"를 누르면 닫음 when 새 노트 작성 모드에서 "태그 추가"를 클릭', async () => {
+    const user = userEvent.setup();
+    await renderCreating();
+
+    await openInput(user);
+    expect(screen.getByLabelText('태그 입력')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '닫기' }));
+
+    expect(screen.queryByLabelText('태그 입력')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '태그 추가' })).toBeInTheDocument();
+  });
+
+  // 이슈 5 E3
+  it('should trim된 태그를 목록에 표시하고 입력창을 비움 when 새 노트 작성 모드에서 입력창에 입력하고 Enter', async () => {
+    const user = userEvent.setup();
+    await renderCreating();
+    await openInput(user);
+
+    await addTag(user, '  react  ');
+
+    expect(screen.getByText('react')).toBeInTheDocument();
+    expect(screen.getByLabelText('태그 입력')).toHaveValue('');
+  });
+
+  // 이슈 5 E4
+  it('should createNote를 (제목, 내용, [\'react\'])로 호출 when 제목과 내용을 입력하고 태그 react를 추가한 뒤 "저장"', async () => {
+    const user = userEvent.setup();
+    await renderCreating();
+    await user.type(screen.getByPlaceholderText('제목'), '제목');
+    await user.type(screen.getByPlaceholderText('내용을 입력하세요...'), '내용');
+    await openInput(user);
+    await addTag(user, 'react');
+
+    await user.click(screen.getByRole('button', { name: '저장' }));
+
+    expect(api.createNote).toHaveBeenCalledWith({
+      title: '제목',
+      content: '내용',
+      tags: ['react'],
+    });
+  });
+
+  // 이슈 5 E5
+  it('should createNote를 (제목, 내용, [])로 호출 when 태그를 추가하지 않고 "저장"', async () => {
+    const user = userEvent.setup();
+    await renderCreating();
+    await user.type(screen.getByPlaceholderText('제목'), '제목');
+    await user.type(screen.getByPlaceholderText('내용을 입력하세요...'), '내용');
+
+    await user.click(screen.getByRole('button', { name: '저장' }));
+
+    expect(api.createNote).toHaveBeenCalledWith({ title: '제목', content: '내용', tags: [] });
+  });
+
+  // 이슈 5 E6
+  // 서버 응답의 tags를 입력('react')과 다른 값('server')으로 돌려줘, 노트를 열 때 서버에서 읽은
+  // 값을 표시하는지와 작성 중이던 로컬 태그가 남은 것인지를 구분한다.
+  it('should 저장한 태그를 표시 when 생성 후 목록에 나타난 새 노트를 선택', async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.createNote).mockImplementation(async (note) => {
+      const created: Note = {
+        id: 'test-new',
+        createdAt: '2025-01-15T09:00:00.000Z',
+        updatedAt: '2025-01-15T09:00:00.000Z',
+        ...note,
+        tags: ['server'],
+      };
+      serverNotes = [...serverNotes, created];
+      return created;
+    });
+    const { setMode } = await renderCreating();
+    await user.type(screen.getByPlaceholderText('제목'), '제목');
+    await openInput(user);
+    await addTag(user, 'react');
+    await user.click(screen.getByRole('button', { name: '저장' }));
+
+    setMode('test-new', false);
+
+    expect(await screen.findByDisplayValue('제목')).toBeInTheDocument();
+    expect(screen.getByText('server')).toBeInTheDocument();
+    expect(screen.queryByText('react')).not.toBeInTheDocument();
+  });
+
+  // 이슈 5 E7
+  it('should 태그가 추가되지 않고 "이미 있는 태그입니다"를 표시 when 새 노트 작성 모드에서 같은 태그를 두 번 입력', async () => {
+    const user = userEvent.setup();
+    await renderCreating();
+    await openInput(user);
+    await addTag(user, 'react');
+
+    await addTag(user, 'react');
+
+    expect(screen.getAllByText('react')).toHaveLength(1);
+    expect(screen.getByRole('alert')).toHaveTextContent('이미 있는 태그입니다');
+  });
+
+  // 이슈 5 E8
+  it('should 확인창 없이 작성 중이던 태그가 사라지고 선택한 노트의 저장된 태그만 표시 when 새 노트 작성 중 태그를 추가한 뒤 기존 노트를 선택', async () => {
+    const user = userEvent.setup();
+    const { setMode } = await renderCreating();
+    await openInput(user);
+    await addTag(user, 'react');
+
+    setMode('test-1', false);
+
+    expect(await screen.findByDisplayValue('제목 A')).toBeInTheDocument();
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(screen.queryByText('react')).not.toBeInTheDocument();
+    expect(screen.getByText('design')).toBeInTheDocument();
+  });
+
+  // 이슈 5 E9
+  it('should 입력창이 닫히고 입력 중이던 텍스트가 초기화 when 새 노트 작성 중 입력창에 타이핑한 뒤 기존 노트를 선택했다가 다시 새 노트를 시작', async () => {
+    const user = userEvent.setup();
+    const { setMode } = await renderCreating();
+    await openInput(user);
+    await user.type(screen.getByLabelText('태그 입력'), 'typing');
+
+    setMode('test-1', false);
+    await screen.findByDisplayValue('제목 A');
+    setMode(null, true);
+
+    expect(screen.queryByLabelText('태그 입력')).not.toBeInTheDocument();
+    await openInput(user);
+    expect(screen.getByLabelText('태그 입력')).toHaveValue('');
+  });
+
+  // 이슈 5 E10
+  it('should 안내 문구가 사라짐 when 새 노트 작성 중 안내 문구가 표시된 상태에서 기존 노트를 선택했다가 다시 새 노트를 시작', async () => {
+    const user = userEvent.setup();
+    const { setMode } = await renderCreating();
+    await openInput(user);
+    await addTag(user, 'react');
+    await addTag(user, 'react');
+    expect(screen.getByRole('alert')).toHaveTextContent('이미 있는 태그입니다');
+
+    setMode('test-1', false);
+    await screen.findByDisplayValue('제목 A');
+    setMode(null, true);
+    await openInput(user);
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  // 이슈 5 E11
+  it('should 이전 작성 태그가 남지 않고 태그 목록이 비어 있음 when 새 노트 작성 중 태그를 추가한 뒤 기존 노트를 선택했다가 다시 새 노트를 시작', async () => {
+    const user = userEvent.setup();
+    const { setMode } = await renderCreating();
+    await openInput(user);
+    await addTag(user, 'react');
+
+    setMode('test-1', false);
+    await screen.findByDisplayValue('제목 A');
+    setMode(null, true);
+
+    expect(screen.queryByText('react')).not.toBeInTheDocument();
+    expect(screen.queryByText('design')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /태그 삭제$/ })).not.toBeInTheDocument();
+  });
+
+  // 이슈 5 E12
+  it('should 태그 없이 시작 when 새 노트를 저장해 작성을 마친 뒤(onDone) 다시 새 노트를 시작', async () => {
+    const user = userEvent.setup();
+    const { setMode, onDone } = await renderCreating();
+    await user.type(screen.getByPlaceholderText('제목'), '제목');
+    await openInput(user);
+    await addTag(user, 'react');
+    await user.click(screen.getByRole('button', { name: '저장' }));
+    expect(onDone).toHaveBeenCalled();
+
+    setMode(null, false);
+    setMode(null, true);
+
+    expect(screen.queryByText('react')).not.toBeInTheDocument();
+  });
+
+  // 이슈 5 E13
+  it('should createNote를 호출하지 않음 when 새 노트 작성 중 태그만 추가하고 제목이 비어 있음', async () => {
+    const user = userEvent.setup();
+    await renderCreating();
+    await openInput(user);
+    await addTag(user, 'react');
+
+    await user.click(screen.getByRole('button', { name: '저장' }));
+
+    expect(api.createNote).not.toHaveBeenCalled();
+  });
+
+  // 이슈 5 E14
+  it('should 작성 중인 tags를 유지하고 onDone을 호출하지 않음 when 새 노트 저장 중 createNote가 reject', async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.createNote).mockRejectedValue(new Error('Failed to create note'));
+    const { onDone } = await renderCreating();
+    await user.type(screen.getByPlaceholderText('제목'), '제목');
+    await openInput(user);
+    await addTag(user, 'react');
+
+    await user.click(screen.getByRole('button', { name: '저장' }));
+
+    expect(onDone).not.toHaveBeenCalled();
+    expect(screen.getByText('react')).toBeInTheDocument();
+  });
+});
