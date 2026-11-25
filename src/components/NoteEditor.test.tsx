@@ -870,8 +870,21 @@ describe('NoteEditor 새 노트 태그 (이슈 5)', () => {
   });
 
   // 이슈 5 E6
+  // 서버 응답의 tags를 입력('react')과 다른 값('server')으로 돌려줘, 노트를 열 때 서버에서 읽은
+  // 값을 표시하는지와 작성 중이던 로컬 태그가 남은 것인지를 구분한다.
   it('should 저장한 태그를 표시 when 생성 후 목록에 나타난 새 노트를 선택', async () => {
     const user = userEvent.setup();
+    vi.mocked(api.createNote).mockImplementation(async (note) => {
+      const created: Note = {
+        id: 'test-new',
+        createdAt: '2025-01-15T09:00:00.000Z',
+        updatedAt: '2025-01-15T09:00:00.000Z',
+        ...note,
+        tags: ['server'],
+      };
+      serverNotes = [...serverNotes, created];
+      return created;
+    });
     const { setMode } = await renderCreating();
     await user.type(screen.getByPlaceholderText('제목'), '제목');
     await openInput(user);
@@ -881,7 +894,8 @@ describe('NoteEditor 새 노트 태그 (이슈 5)', () => {
     setMode('test-new', false);
 
     expect(await screen.findByDisplayValue('제목')).toBeInTheDocument();
-    expect(screen.getByText('react')).toBeInTheDocument();
+    expect(screen.getByText('server')).toBeInTheDocument();
+    expect(screen.queryByText('react')).not.toBeInTheDocument();
   });
 
   // 이슈 5 E7
