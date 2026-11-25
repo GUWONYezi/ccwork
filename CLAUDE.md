@@ -110,6 +110,31 @@ src/
 
 `vite.config.ts`의 `test` 블록: `globals: true`, `environment: 'jsdom'`, `setupFiles: ./src/test-setup.ts`(`@testing-library/jest-dom` 로드). 컴포넌트 테스트에서 `useNotes`/`api` 모듈은 mock 하거나 `NotesProvider`로 감싸서 사용해야 한다 (`fetch`가 실제 `localhost:3001`을 호출함).
 
+## TDD 이슈 사이클 (workflow)
+
+새 이슈 작업 시 다음 순서를 따른다:
+
+1. /test-scenarios N — 시그니처 + 시나리오 (skill)
+2. /tdd-signature N — 빈 시그니처 스캐폴딩, 테스트가 import할 모듈 뼈대 (skill)
+3. /tdd-red N — 실패 테스트 작성 (skill)
+4. /tdd-green N — 최소 구현, 테스트 전체 통과 (skill)
+5. @ac-verifier N — AC 충족 독립 검증, 테스트 통과 ≠ AC 충족 (agent)
+6. /tdd-refactor N — 구조 개선, 깨지면 즉시 롤백 (skill)
+7. /tdd-security N — 타입·보안 점검 (skill)
+8. commit → PR --base feature/<spec> → squash merge → 이슈 클로즈
+
+각 단계는 인간 승인 게이트가 있다. **자동으로 다음 단계로 넘어가지 말 것.**
+이슈 의존성이 있으면 선행 이슈가 머지된 feature 브랜치에서 분기.
+
+### 흐름 제어 (Claude의 역할)
+
+- 이 사이클을 개발 workflow로 인식하고, 개발 중 **현재 어느 단계인지 추적하며 흐름을 주도적으로 제어**한다.
+- 각 단계가 끝나면 결과를 요약하고 **다음 단계(명령어 포함)를 제안**한 뒤 사용자 승인을 기다린다. 승인 없이 실행하지 않는다.
+- 사용자가 단계를 건너뛰거나 순서를 어기려 하면(예: Red 없이 구현, AC 검증 없이 refactor) 이유를 짚고 올바른 단계를 제안한다.
+- 단계가 실패·중단되면(테스트 깨짐, AC 미충족, 보안 이슈 등) 다음으로 넘어가지 말고 원인과 되돌아갈 단계를 제안한다.
+- 8단계(commit/PR/merge/이슈 클로즈)도 각각 확인을 받고 진행하며, commit 규칙은 아래 "git commit / push 설정"을 따른다.
+- 이슈 의존성이 있으면 브랜치 분기 기준(선행 이슈가 머지된 feature 브랜치)을 먼저 확인하도록 제안한다.
+
 ## git commit / push 설정
 
 git 훅에서 오류가 났을 경우 직접 수정해서 commit 또는 push를 진행하지 않는다. 오류가 났을 경우엔 어느 파일에서 어떤 오류가 났는지 정보를 제공한다.
