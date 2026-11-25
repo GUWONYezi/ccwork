@@ -26,6 +26,11 @@ export function useTagEditor(): UseTagEditorResult {
     setErrorMessage(null);
   };
 
+  const clearInput = () => {
+    setInputValue('');
+    setErrorMessage(null);
+  };
+
   const addTag = () => {
     const result = validateTag(inputValue, tags);
     if (!result.canAdd) {
@@ -33,15 +38,13 @@ export function useTagEditor(): UseTagEditorResult {
       return;
     }
     setTags([...tags, result.tag]);
-    setInputValue('');
-    setErrorMessage(null);
+    clearInput();
   };
 
   const reset = (initialTags: string[]) => {
     setTags([...initialTags]);
     setIsInputOpen(false);
-    setInputValue('');
-    setErrorMessage(null);
+    clearInput();
   };
 
   const removeTag = (index: number) => setTags((prev) => prev.filter((_, i) => i !== index));
