@@ -15,11 +15,21 @@ export function NoteEditor({ selectedNoteId, isCreating, onDone }: NoteEditorPro
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [saving, setSaving] = useState(false);
-  const { tags, isInputOpen, inputValue, toggleInput, changeInput, addTag, reset } = useTagEditor();
+  const {
+    tags,
+    isInputOpen,
+    inputValue,
+    toggleInput,
+    changeInput,
+    addTag,
+    reset,
+    removeTag,
+    errorMessage,
+  } = useTagEditor();
 
   const selectedNote = notes.find((n) => n.id === selectedNoteId);
 
-  // 선택된 노트가 바뀔 때 폼 동기화
+  // 선택된 노트나 새 노트 작성 모드가 바뀔 때 폼(제목, 내용, 태그) 동기화
   useEffect(() => {
     if (selectedNote) {
       setTitle(selectedNote.title);
@@ -28,6 +38,7 @@ export function NoteEditor({ selectedNoteId, isCreating, onDone }: NoteEditorPro
     } else if (isCreating) {
       setTitle('');
       setContent('');
+      reset([]);
     }
   }, [selectedNoteId, isCreating]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -40,7 +51,7 @@ export function NoteEditor({ selectedNoteId, isCreating, onDone }: NoteEditorPro
     setSaving(true);
     try {
       if (isCreating) {
-        await createNote(title, content);
+        await createNote(title, content, tags);
       } else if (selectedNoteId) {
         await updateNote(selectedNoteId, { title, content, tags });
       }
@@ -80,19 +91,18 @@ export function NoteEditor({ selectedNoteId, isCreating, onDone }: NoteEditorPro
         className="w-full text-xl font-bold text-foreground bg-transparent border-none outline-none placeholder:text-muted-foreground/50 mb-4"
       />
 
-      {/* 태그 (생성 모드에서는 숨김) */}
-      {!isCreating && (
-        <div className="flex flex-col gap-2 mb-4">
-          <TagInput
-            isOpen={isInputOpen}
-            value={inputValue}
-            onToggle={toggleInput}
-            onChange={changeInput}
-            onSubmit={addTag}
-          />
-          <TagList tags={tags} />
-        </div>
-      )}
+      {/* 태그 */}
+      <div className="flex flex-col gap-2 mb-4">
+        <TagInput
+          isOpen={isInputOpen}
+          value={inputValue}
+          onToggle={toggleInput}
+          onChange={changeInput}
+          onSubmit={addTag}
+          errorMessage={errorMessage}
+        />
+        <TagList tags={tags} onDelete={removeTag} />
+      </div>
 
       {/* 구분선 */}
       <div className="h-px bg-border mb-4" />

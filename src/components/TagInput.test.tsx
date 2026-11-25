@@ -5,7 +5,7 @@ import { TagInput } from './TagInput';
 
 function renderTagInput(props: Partial<React.ComponentProps<typeof TagInput>> = {}) {
   const handlers = { onToggle: vi.fn(), onChange: vi.fn(), onSubmit: vi.fn() };
-  render(<TagInput isOpen={false} value="" {...handlers} {...props} />);
+  render(<TagInput isOpen={false} value="" errorMessage={null} {...handlers} {...props} />);
   return handlers;
 }
 
@@ -70,12 +70,28 @@ describe('TagInput', () => {
   // TI7
   it("should value를 입력창 값으로 표시 when value가 'react' 또는 ''", () => {
     const { unmount } = render(
-      <TagInput isOpen value="react" onToggle={vi.fn()} onChange={vi.fn()} onSubmit={vi.fn()} />,
+      <TagInput
+        isOpen
+        value="react"
+        errorMessage={null}
+        onToggle={vi.fn()}
+        onChange={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
     );
     expect(screen.getByLabelText('태그 입력')).toHaveValue('react');
     unmount();
 
-    render(<TagInput isOpen value="" onToggle={vi.fn()} onChange={vi.fn()} onSubmit={vi.fn()} />);
+    render(
+      <TagInput
+        isOpen
+        value=""
+        errorMessage={null}
+        onToggle={vi.fn()}
+        onChange={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    );
     expect(screen.getByLabelText('태그 입력')).toHaveValue('');
   });
 
@@ -112,5 +128,56 @@ describe('TagInput', () => {
     fireEvent.keyDown(screen.getByLabelText('태그 입력'), { key: 'Enter', isComposing: true });
 
     expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  describe('안내 문구 (이슈 3)', () => {
+    // 이슈 3 I1
+    it("should 안내 문구를 표시 when isOpen true이고 errorMessage가 '이미 있는 태그입니다'", () => {
+      renderTagInput({ isOpen: true, errorMessage: '이미 있는 태그입니다' });
+
+      expect(screen.getByText('이미 있는 태그입니다')).toBeInTheDocument();
+    });
+
+    // 이슈 3 I2
+    it('should 문구를 입력창 아래에 표시 when errorMessage가 있음 (DOM 순서)', () => {
+      renderTagInput({ isOpen: true, errorMessage: '이미 있는 태그입니다' });
+
+      const input = screen.getByLabelText('태그 입력');
+      const message = screen.getByText('이미 있는 태그입니다');
+      expect(
+        input.compareDocumentPosition(message) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    });
+
+    // 이슈 3 I3
+    it('should 문구가 role alert를 가짐 when errorMessage가 있음', () => {
+      renderTagInput({ isOpen: true, errorMessage: '이미 있는 태그입니다' });
+
+      expect(screen.getByRole('alert')).toHaveTextContent('이미 있는 태그입니다');
+    });
+
+    // 이슈 3 I4
+    // 회귀 테스트: 기존 TagInput이 errorMessage 없이 alert를 이미 렌더하지 않는다. Red 단계에서도 통과한다.
+    it('should alert를 렌더하지 않음 when errorMessage가 null', () => {
+      renderTagInput({ isOpen: true, errorMessage: null });
+
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    });
+
+    // 이슈 3 I5
+    // 회귀 테스트: 기존 TagInput이 닫힌 상태에서 문구를 이미 표시하지 않는다. Red 단계에서도 통과한다.
+    it('should 문구를 표시하지 않음 when isOpen false이고 errorMessage가 있음', () => {
+      renderTagInput({ isOpen: false, errorMessage: '이미 있는 태그입니다' });
+
+      expect(screen.queryByText('이미 있는 태그입니다')).not.toBeInTheDocument();
+    });
+
+    // 이슈 3 I6
+    // 회귀 테스트: 기존 TagInput이 value를 입력창에 이미 그대로 표시한다. Red 단계에서도 통과한다.
+    it('should 입력창 값을 그대로 유지 when errorMessage가 있음', () => {
+      renderTagInput({ isOpen: true, value: 'react', errorMessage: '이미 있는 태그입니다' });
+
+      expect(screen.getByLabelText('태그 입력')).toHaveValue('react');
+    });
   });
 });
