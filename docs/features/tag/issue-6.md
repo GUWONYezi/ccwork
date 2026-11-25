@@ -49,35 +49,35 @@ export declare function NoteItem(props: NoteItemProps): ReactElement;
 
 **정상**
 
-- [ ] N1 `[정상] NoteItem — should "태그 3"을 표시 when note.tags가 3개`
-- [ ] N2 `[정상] NoteItem — should "태그 1"을 표시 when note.tags가 1개 (표시 기준 1 이상의 하한)`
-- [ ] N3 `[정상] NoteItem — should 개수 텍스트가 text-on-surface-variant 클래스를 가짐 when note.tags가 있음 (jsdom은 색을 계산하지 못하므로 클래스 존재로 검증)`
-- [ ] N4 `[정상] NoteItem — should 개수 표시에 아이콘(svg, img)이 없음 when note.tags가 있음`
+- [x] N1 `[정상] NoteItem — should "태그 3"을 표시 when note.tags가 3개`
+- [x] N2 `[정상] NoteItem — should "태그 1"을 표시 when note.tags가 1개 (표시 기준 1 이상의 하한)`
+- [x] N3 `[정상] NoteItem — should 개수 텍스트가 text-on-surface-variant 클래스를 가짐 when note.tags가 있음 (jsdom은 색을 계산하지 못하므로 클래스 존재로 검증)`
+- [x] N4 `[정상] NoteItem — should 개수 표시에 아이콘(svg, img)이 없음 when note.tags가 있음`
 
 **경계**
 
-- [ ] N5 `[경계] NoteItem — should 개수 표시가 없음 when note.tags가 빈 배열`
-- [ ] N6 `[경계] NoteItem — should 에러 없이 렌더하고 개수 표시가 없음 when tags 필드가 없는 기존 노트`
-- [ ] N7 `[경계] NoteItem — should "태그 10"을 표시 when note.tags가 10개 (이슈 4의 최대 개수)`
-- [ ] N8 `[경계] NoteItem — should 제목과 내용을 그대로 표시 when note.tags가 있음 (기존 표시 유지)`
+- [x] N5 `[경계] NoteItem — should 개수 표시가 없음 when note.tags가 빈 배열`
+- [x] N6 `[경계] NoteItem — should 에러 없이 렌더하고 개수 표시가 없음 when tags 필드가 없는 기존 노트`
+- [x] N7 `[경계] NoteItem — should "태그 10"을 표시 when note.tags가 10개 (이슈 4의 최대 개수)`
+- [x] N8 `[경계] NoteItem — should 제목과 내용을 그대로 표시 when note.tags가 있음 (기존 표시 유지)`
 
 ### App (통합: api mock, 카드와 편집기가 한 화면)
 
 **정상**
 
-- [ ] P1 `[정상] App — should 태그 있는 노트 카드에만 "태그 2"가 표시되고 태그 없는 노트 카드에는 없음 when 목록이 로딩됨`
-- [ ] P3 `[정상] App — should 카드의 개수가 갱신 when 노트를 열어 태그를 추가하고 "저장"`
-- [ ] P6 `[정상] App — should 새 노트 카드에 "태그 2"가 표시 when "+ 새 노트"로 태그 2개를 추가해 저장`
+- [x] P1 `[정상] App — should 태그 있는 노트 카드에만 "태그 2"가 표시되고 태그 없는 노트 카드에는 없음 when 목록이 로딩됨`
+- [x] P3 `[정상] App — should 카드의 개수가 갱신 when 노트를 열어 태그를 추가하고 "저장"`
+- [x] P6 `[정상] App — should 새 노트 카드에 "태그 2"가 표시 when "+ 새 노트"로 태그 2개를 추가해 저장`
 
 **경계**
 
-- [ ] P2 `[경계] App — should 카드의 개수가 그대로 when 노트를 열어 태그를 추가했지만 저장하지 않음 (미저장 편집 미반영)`
-- [ ] P4 `[경계] App — should 카드의 개수가 줄어듦 when 태그를 삭제하고 "저장"`
-- [ ] P5 `[경계] App — should 카드의 개수 표시가 사라짐 when 마지막 태그를 모두 삭제하고 "저장"`
+- [x] P2 `[경계] App — should 카드의 개수가 그대로 when 노트를 열어 태그를 추가했지만 저장하지 않음 (미저장 편집 미반영)`
+- [x] P4 `[경계] App — should 카드의 개수가 줄어듦 when 태그를 삭제하고 "저장"`
+- [x] P5 `[경계] App — should 카드의 개수 표시가 사라짐 when 마지막 태그를 모두 삭제하고 "저장"`
 
 **예외**
 
-- [ ] P7 `[예외] App — should 카드의 개수가 그대로 when 저장 중 updateNote가 reject`
+- [x] P7 `[예외] App — should 카드의 개수가 그대로 when 저장 중 updateNote가 reject`
 
 ## AC 커버리지
 
