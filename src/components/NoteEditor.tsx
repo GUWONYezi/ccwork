@@ -29,7 +29,7 @@ export function NoteEditor({ selectedNoteId, isCreating, onDone }: NoteEditorPro
 
   const selectedNote = notes.find((n) => n.id === selectedNoteId);
 
-  // 선택된 노트가 바뀔 때 폼 동기화
+  // 선택된 노트나 새 노트 작성 모드가 바뀔 때 폼(제목, 내용, 태그) 동기화
   useEffect(() => {
     if (selectedNote) {
       setTitle(selectedNote.title);
