@@ -382,3 +382,122 @@ describe('useTagEditor', () => {
     });
   });
 });
+
+describe('useTagEditor 길이/개수 제한 (이슈 4)', () => {
+  const LEN_MSG = '태그는 최대 50자까지 입력할 수 있습니다';
+  const COUNT_MSG = '태그는 최대 10개까지 추가할 수 있습니다';
+  const tagsOf = (count: number) => Array.from({ length: count }, (_, i) => `tag${i}`);
+
+  function setupWith(initialTags: string[]) {
+    const hook = renderHook(() => useTagEditor());
+    act(() => hook.result.current.reset(initialTags));
+    return hook;
+  }
+
+  // 이슈 4 H1
+  it('should tags를 바꾸지 않고 errorMessage를 길이 초과 문구로 when 51자를 입력', () => {
+    const { result } = renderHook(() => useTagEditor());
+
+    addTagByTyping(result, 'a'.repeat(51));
+
+    expect(result.current.tags).toEqual([]);
+    expect(result.current.errorMessage).toBe(LEN_MSG);
+  });
+
+  // 이슈 4 H2
+  // 회귀 테스트: 기존 addTag가 50자 입력을 이미 추가한다(제한이 아직 없음). Red 단계에서도 통과한다.
+  it('should 태그를 추가하고 errorMessage를 null로 when 50자를 입력', () => {
+    const { result } = renderHook(() => useTagEditor());
+    const tag = 'a'.repeat(50);
+
+    addTagByTyping(result, tag);
+
+    expect(result.current.tags).toEqual([tag]);
+    expect(result.current.errorMessage).toBeNull();
+  });
+
+  // 이슈 4 H3
+  it('should tags를 바꾸지 않고 errorMessage를 개수 초과 문구로 when 태그가 10개인 상태에서 추가', () => {
+    const { result } = setupWith(tagsOf(10));
+
+    addTagByTyping(result, 'vue');
+
+    expect(result.current.tags).toEqual(tagsOf(10));
+    expect(result.current.errorMessage).toBe(COUNT_MSG);
+  });
+
+  // 이슈 4 H4
+  // 회귀 테스트: 기존 addTag가 10번째 태그를 이미 추가한다(제한이 아직 없음). Red 단계에서도 통과한다.
+  it('should 10번째 태그를 추가 when 태그가 9개', () => {
+    const { result } = setupWith(tagsOf(9));
+
+    addTagByTyping(result, 'vue');
+
+    expect(result.current.tags).toEqual([...tagsOf(9), 'vue']);
+  });
+
+  // 이슈 4 H5
+  it('should inputValue를 비우지 않고 유지 when 길이 초과로 거절', () => {
+    const { result } = renderHook(() => useTagEditor());
+    const input = 'a'.repeat(51);
+
+    addTagByTyping(result, input);
+
+    expect(result.current.inputValue).toBe(input);
+  });
+
+  // 이슈 4 H6
+  it('should inputValue를 비우지 않고 유지 when 개수 초과로 거절', () => {
+    const { result } = setupWith(tagsOf(10));
+
+    addTagByTyping(result, 'vue');
+
+    expect(result.current.inputValue).toBe('vue');
+  });
+
+  // 이슈 4 H7
+  it('should errorMessage를 null로 when 길이 초과 문구가 있는 상태에서 값을 변경', () => {
+    const { result } = renderHook(() => useTagEditor());
+    addTagByTyping(result, 'a'.repeat(51));
+    expect(result.current.errorMessage).toBe(LEN_MSG);
+
+    act(() => result.current.changeInput('a'.repeat(50)));
+
+    expect(result.current.errorMessage).toBeNull();
+  });
+
+  // 이슈 4 H8
+  it('should errorMessage를 null로 when 개수 초과 문구가 있는 상태에서 값을 변경', () => {
+    const { result } = setupWith(tagsOf(10));
+    addTagByTyping(result, 'vue');
+    expect(result.current.errorMessage).toBe(COUNT_MSG);
+
+    act(() => result.current.changeInput('vu'));
+
+    expect(result.current.errorMessage).toBeNull();
+  });
+
+  // 이슈 4 H9
+  it('should 다시 추가할 수 있음 when 10개에서 removeTag로 하나 삭제한 뒤 추가 (개수는 현재 tags 기준)', () => {
+    const { result } = setupWith(tagsOf(10));
+    addTagByTyping(result, 'vue');
+    expect(result.current.tags).toEqual(tagsOf(10));
+    act(() => result.current.removeTag(0));
+
+    act(() => result.current.addTag());
+
+    expect(result.current.tags).toEqual([...tagsOf(10).slice(1), 'vue']);
+  });
+
+  // 이슈 4 H10
+  it('should errorMessage를 null로 when 개수 초과로 거절된 뒤 removeTag로 하나 삭제하고 같은 입력값으로 다시 addTag', () => {
+    const { result } = setupWith(tagsOf(10));
+    addTagByTyping(result, 'vue');
+    expect(result.current.errorMessage).toBe(COUNT_MSG);
+    act(() => result.current.removeTag(0));
+
+    act(() => result.current.addTag());
+
+    expect(result.current.errorMessage).toBeNull();
+  });
+});
