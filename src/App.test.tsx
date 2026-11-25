@@ -118,6 +118,8 @@ describe('App 카드 태그 개수 (이슈 6)', () => {
     expect(screen.getByText('vue')).toBeInTheDocument(); // 편집기에는 반영됨
     expect(screen.getByText('태그 2')).toBeInTheDocument();
     expect(screen.queryByText('태그 3')).not.toBeInTheDocument();
+    // 개수 표시는 태그 있는 카드 1개뿐이어야 한다(태그 없는 카드로 새지 않음)
+    expect(screen.getAllByText(TAG_COUNT_TEXT)).toHaveLength(1);
   });
 
   // 이슈 6 P4
