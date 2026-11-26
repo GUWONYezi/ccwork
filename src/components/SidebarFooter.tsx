@@ -4,7 +4,7 @@ interface SidebarFooterProps {
 
 export function SidebarFooter({ onOpenTrash }: SidebarFooterProps) {
   return (
-    <div className="mt-6 flex justify-start">
+    <div className="mt-6 flex">
       {/* 휴지통 버튼 */}
       <button
         type="button"

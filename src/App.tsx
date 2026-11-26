@@ -40,13 +40,17 @@ function App() {
     if (id === selectedNoteId) setSelectedNoteId(null);
   };
 
+  const handleOpenTrash = () => setSidebarView('trash');
+
+  const handleCloseTrash = () => setSidebarView('notes');
+
   return (
     <NotesProvider>
       <Layout
         onNewNote={handleNewNote}
         sidebar={
           sidebarView === 'trash' ? (
-            <TrashSidebar onBack={() => setSidebarView('notes')} />
+            <TrashSidebar onBack={handleCloseTrash} />
           ) : (
             <>
               <NoteList
@@ -54,7 +58,7 @@ function App() {
                 onSelect={handleSelectNote}
                 onTrashed={handleTrashed}
               />
-              <SidebarFooter onOpenTrash={() => setSidebarView('trash')} />
+              <SidebarFooter onOpenTrash={handleOpenTrash} />
             </>
           )
         }

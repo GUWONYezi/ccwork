@@ -30,6 +30,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const { activeNotes, trashedNotes } = partitionNotes(allNotes);
+  const sortedTrashedNotes = sortByDeletedAt(trashedNotes);
 
   const createNote = async (title: string, content: string, tags: string[] = []) => {
     const newNote = await api.createNote({ title, content, tags });
@@ -52,7 +53,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     <NotesContext.Provider
       value={{
         notes: activeNotes,
-        trashedNotes: sortByDeletedAt(trashedNotes),
+        trashedNotes: sortedTrashedNotes,
         loading,
         error,
         createNote,
