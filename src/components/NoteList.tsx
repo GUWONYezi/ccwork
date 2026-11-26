@@ -1,19 +1,28 @@
 import { useNotes } from '../context/NotesContext';
+import { useConfirmAction } from '../hooks/useConfirmAction';
+import { Confirm } from './Confirm';
 import { NoteItem } from './NoteItem';
 
 interface NoteListProps {
   selectedNoteId: string | null;
   onSelect: (id: string) => void;
+  onTrashed: (id: string) => void;
 }
 
-export function NoteList({ selectedNoteId, onSelect }: NoteListProps) {
-  const { notes, loading, error, deleteNote } = useNotes();
+export function NoteList({ selectedNoteId, onSelect, onTrashed }: NoteListProps) {
+  const { notes, loading, error, trashNote } = useNotes();
 
-  const handleDelete = async (id: string) => {
+  const trashConfirm = useConfirmAction<string>(async (id) => {
+    await trashNote(id);
+    onTrashed(id);
+  });
+
+  const handleConfirmTrash = async () => {
     try {
-      await deleteNote(id);
+      await trashConfirm.confirm();
     } catch (e) {
       console.error('삭제에 실패했습니다', e);
+      alert('삭제에 실패했습니다');
     }
   };
 
@@ -40,9 +49,18 @@ export function NoteList({ selectedNoteId, onSelect }: NoteListProps) {
           note={note}
           isSelected={note.id === selectedNoteId}
           onSelect={onSelect}
-          onDelete={handleDelete}
+          onDelete={trashConfirm.request}
         />
       ))}
+
+      {/* 삭제 확인 */}
+      {trashConfirm.pending !== null && (
+        <div className="fixed inset-0 z-10 flex items-center justify-center">
+          <Confirm title="노트 삭제" onConfirm={handleConfirmTrash} onCancel={trashConfirm.cancel}>
+            이 노트를 휴지통으로 옮길까요?
+          </Confirm>
+        </div>
+      )}
     </div>
   );
 }

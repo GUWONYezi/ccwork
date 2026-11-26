@@ -1,48 +1,66 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Note } from '../types/note';
 import * as api from '../api/notes';
+import { partitionNotes, sortByDeletedAt } from '../utils/trash';
 
 interface NotesContextType {
   notes: Note[];
+  trashedNotes: Note[]; // 휴지통 노트, 최근 삭제 순
   loading: boolean;
   error: string | null;
   createNote: (title: string, content: string, tags?: string[]) => Promise<void>;
   updateNote: (id: string, updates: Partial<Note>) => Promise<void>;
   deleteNote: (id: string) => Promise<void>;
+  trashNote: (id: string) => Promise<void>;
 }
 
 const NotesContext = createContext<NotesContextType | null>(null);
 
 export function NotesProvider({ children }: { children: ReactNode }) {
-  const [notes, setNotes] = useState<Note[]>([]);
+  const [allNotes, setAllNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     api
       .fetchNotes()
-      .then(setNotes)
+      .then(setAllNotes)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
 
+  const { activeNotes, trashedNotes } = partitionNotes(allNotes);
+
   const createNote = async (title: string, content: string, tags: string[] = []) => {
     const newNote = await api.createNote({ title, content, tags });
-    setNotes((prev) => [...prev, newNote]);
+    setAllNotes((prev) => [...prev, newNote]);
   };
 
   const updateNote = async (id: string, updates: Partial<Note>) => {
     const updated = await api.updateNote(id, updates);
-    setNotes((prev) => prev.map((n) => (n.id === id ? updated : n)));
+    setAllNotes((prev) => prev.map((n) => (n.id === id ? updated : n)));
   };
 
   const deleteNote = async (id: string) => {
     await api.deleteNote(id);
-    setNotes((prev) => prev.filter((n) => n.id !== id));
+    setAllNotes((prev) => prev.filter((n) => n.id !== id));
   };
 
+  const trashNote = (id: string) => updateNote(id, { deletedAt: new Date().toISOString() });
+
   return (
-    <NotesContext.Provider value={{ notes, loading, error, createNote, updateNote, deleteNote }}>
+    <NotesContext.Provider
+      value={{
+        notes: activeNotes,
+        trashedNotes: sortByDeletedAt(trashedNotes),
+        loading,
+        error,
+        createNote,
+        updateNote,
+        deleteNote,
+        trashNote,
+      }}
+    >
       {children}
     </NotesContext.Provider>
   );
