@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { NotesProvider, useNotes } from './NotesContext';
 import * as api from '../api/notes';
@@ -121,5 +121,98 @@ describe('NotesContext.createNote 태그 (이슈 5)', () => {
     );
 
     expect(result.current.notes).toEqual(testNotes);
+  });
+});
+
+describe('NotesContext 휴지통 (Trash 이슈 1)', () => {
+  const trashedOld: Note = {
+    id: 'test-trashed-old',
+    title: '오래전에 삭제한 노트',
+    content: '내용',
+    createdAt: '2025-01-01T00:00:00.000Z',
+    updatedAt: '2025-01-01T00:00:00.000Z',
+    deletedAt: '2025-01-05T12:00:00.000Z',
+  };
+  const trashedRecent: Note = {
+    id: 'test-trashed-recent',
+    title: '최근에 삭제한 노트',
+    content: '내용',
+    createdAt: '2025-01-02T00:00:00.000Z',
+    updatedAt: '2025-01-02T00:00:00.000Z',
+    deletedAt: '2025-01-20T12:00:00.000Z',
+  };
+
+  async function setup(initial: Note[]) {
+    vi.mocked(api.fetchNotes).mockResolvedValue(initial);
+    const hook = renderHook(() => useNotes(), { wrapper: NotesProvider });
+    await waitFor(() => expect(hook.result.current.loading).toBe(false));
+    return hook;
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('should `PATCH`로 현재 일시의 `deletedAt`을 보내고 해당 노트를 `notes`에서 제거 when 서버가 성공 응답', async () => {
+    const now = '2025-01-15T09:00:00.000Z';
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(now));
+    vi.mocked(api.updateNote).mockResolvedValue({ ...testNotes[0], deletedAt: now });
+    const { result } = await setup(testNotes);
+
+    await act(() => result.current.trashNote('test-1'));
+
+    expect(api.updateNote).toHaveBeenCalledWith('test-1', { deletedAt: now });
+    expect(result.current.notes.map((n) => n.id)).toEqual(['test-2']);
+  });
+
+  it('should 해당 노트를 `trashedNotes`에 포함 when 서버가 성공 응답', async () => {
+    const now = '2025-01-15T09:00:00.000Z';
+    const trashed: Note = { ...testNotes[0], deletedAt: now };
+    vi.mocked(api.updateNote).mockResolvedValue(trashed);
+    const { result } = await setup(testNotes);
+
+    await act(() => result.current.trashNote('test-1'));
+
+    expect(result.current.trashedNotes).toEqual([trashed]);
+  });
+
+  it('should `trashedNotes`를 최근 삭제 순으로 노출 when 삭제일이 다른 휴지통 노트가 여럿 있음', async () => {
+    const { result } = await setup([trashedOld, testNotes[0], trashedRecent]);
+
+    expect(result.current.trashedNotes.map((n) => n.id)).toEqual([
+      'test-trashed-recent',
+      'test-trashed-old',
+    ]);
+  });
+
+  // 회귀 테스트: 기존 Context가 이미 모든 노트를 `notes`로 노출해 Red 단계에서도 통과한다.
+  it('should 모든 노트를 `notes`에 표시하고 에러가 나지 않음 when 서버 데이터가 전부 `deletedAt` 없음', async () => {
+    const { result } = await setup(testNotes);
+
+    expect(result.current.error).toBeNull();
+    expect(result.current.notes).toEqual(testNotes);
+  });
+
+  it('should 삭제된 노트를 `notes`에서 제외 when 초기 로딩 데이터에 `deletedAt`이 있는 노트가 섞여 있음', async () => {
+    const { result } = await setup([testNotes[0], trashedOld, testNotes[1]]);
+
+    expect(result.current.notes.map((n) => n.id)).toEqual(['test-1', 'test-2']);
+  });
+
+  it('should reject하고 `notes`를 바꾸지 않음 when 서버가 `!res.ok` 응답', async () => {
+    vi.mocked(api.updateNote).mockRejectedValue(new Error('Failed to update note'));
+    const { result } = await setup(testNotes);
+
+    await act(async () => {
+      await expect(result.current.trashNote('test-1')).rejects.toThrow('Failed to update note');
+    });
+
+    expect(result.current.notes).toEqual(testNotes);
+    expect(result.current.trashedNotes).toEqual([]);
   });
 });
