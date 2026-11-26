@@ -227,3 +227,52 @@ describe('App 휴지통 (Trash 이슈 1)', () => {
     expect(screen.getByRole('textbox', { name: '노트 제목' })).toHaveValue('제목 A');
   });
 });
+
+describe('App 휴지통 전환 (Trash 이슈 1, 추가 시나리오)', () => {
+  let serverNotes: Note[];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    serverNotes = [
+      createTestNote({ id: 'test-1', title: '제목 A', content: '내용 A' }),
+      createTestNote({ id: 'test-2', title: '제목 B', content: '내용 B' }),
+    ];
+    vi.mocked(api.fetchNotes).mockImplementation(async () => serverNotes);
+    vi.mocked(api.updateNote).mockImplementation(async (id, updates) => {
+      const updated = { ...serverNotes.find((n) => n.id === id)!, ...updates };
+      serverNotes = serverNotes.map((n) => (n.id === id ? updated : n));
+      return updated;
+    });
+  });
+
+  // 회귀 테스트: 기존 App의 sidebarView 전환이 이미 충족하는 동작이라 Red 단계에서도 통과한다.
+  it('should 사이드바가 일반 노트 목록으로 복귀 when 휴지통 뷰에서 "목록으로 돌아가기" 클릭', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText('제목 A');
+    await user.click(screen.getByRole('button', { name: '휴지통' }));
+    expect(screen.queryByText('제목 A')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /돌아가기/ }));
+
+    expect(await screen.findByText('제목 A')).toBeInTheDocument();
+    expect(screen.getByText('제목 B')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /돌아가기/ })).not.toBeInTheDocument();
+  });
+
+  // 회귀 테스트: 기존 NoteList/NotesContext/TrashList 조합이 이미 충족하는 동작이라 Red 단계에서도 통과한다.
+  it('should 방금 삭제한 노트가 휴지통 뷰 목록에 표시되고 일반 목록에는 없음 when 노트 삭제 확인 후 휴지통 버튼 클릭', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText('제목 A');
+    await user.click(screen.getAllByRole('button', { name: '삭제' })[0]); // 제목 A 삭제
+    await user.click(await screen.findByRole('button', { name: '확인' }));
+    await waitFor(() => expect(screen.queryByText('제목 A')).not.toBeInTheDocument());
+    expect(screen.getByText('제목 B')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '휴지통' }));
+
+    expect(await screen.findByText('제목 A')).toBeInTheDocument();
+    expect(screen.queryByText('제목 B')).not.toBeInTheDocument();
+  });
+});

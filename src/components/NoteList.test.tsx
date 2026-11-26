@@ -131,3 +131,47 @@ describe('NoteList 삭제 (Trash 이슈 1)', () => {
     expect(onTrashed).not.toHaveBeenCalled();
   });
 });
+
+describe('NoteList 삭제 경계 (Trash 이슈 1, 추가 시나리오)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(api.fetchNotes).mockResolvedValue(notes);
+    vi.mocked(api.updateNote).mockImplementation(async (id, updates) => ({
+      ...notes.find((n) => n.id === id)!,
+      ...updates,
+    }));
+    vi.spyOn(window, 'alert').mockImplementation(() => {});
+  });
+
+  // 회귀 테스트: 기존 NoteList의 빈 목록 분기가 이미 충족하는 동작이라 Red 단계에서도 통과한다.
+  it('should 빈 목록 문구가 표시되고 에러가 나지 않음 when 유일한 노트를 삭제 확인', async () => {
+    vi.mocked(api.fetchNotes).mockResolvedValue([notes[0]]);
+    const { user } = await setup();
+    await user.click(firstDeleteButton());
+
+    await user.click(screen.getByRole('button', { name: '확인' }));
+
+    expect(await screen.findByText('노트가 없습니다')).toBeInTheDocument();
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(window.alert).not.toHaveBeenCalled();
+  });
+
+  it('should updateNote를 한 번만 호출 when 확인 버튼을 연속으로 두 번 클릭', async () => {
+    // 서버 응답을 늦춰 첫 요청이 끝나기 전에 두 번째 클릭이 들어오는 상황을 만든다
+    const resolvers: Array<() => void> = [];
+    vi.mocked(api.updateNote).mockImplementation(
+      (id, updates) =>
+        new Promise((resolve) => {
+          resolvers.push(() => resolve({ ...notes.find((n) => n.id === id)!, ...updates }));
+        }),
+    );
+    const { user } = await setup();
+    await user.click(firstDeleteButton());
+    const confirmButton = screen.getByRole('button', { name: '확인' });
+
+    await user.dblClick(confirmButton);
+
+    expect(api.updateNote).toHaveBeenCalledTimes(1);
+    resolvers.forEach((resolve) => resolve());
+  });
+});

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 export interface UseConfirmActionResult<T> {
   pending: T | null; // 확인 대기 중인 대상. null이면 Confirm 닫힘
@@ -11,16 +11,19 @@ export function useConfirmAction<T>(
   action: (target: T) => Promise<void>,
 ): UseConfirmActionResult<T> {
   const [pending, setPending] = useState<T | null>(null);
+  const isRunning = useRef(false); // action 진행 중 재호출(이중 클릭) 방지
 
   const request = (target: T) => setPending(target);
 
   const cancel = () => setPending(null);
 
   const confirm = async () => {
-    if (pending === null) return;
+    if (pending === null || isRunning.current) return;
+    isRunning.current = true;
     try {
       await action(pending);
     } finally {
+      isRunning.current = false;
       setPending(null);
     }
   };
