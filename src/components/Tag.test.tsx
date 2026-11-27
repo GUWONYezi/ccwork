@@ -84,4 +84,12 @@ describe('Tag', () => {
 
     expect(onDelete).not.toHaveBeenCalled();
   });
+  // T10 (Trash 이슈 2)
+  // 회귀 테스트: Green 구현(onDelete가 있을 때만 버튼 렌더링)이 이미 충족하는 동작이라 Red 단계에서도 통과한다.
+  it('should 삭제 버튼을 렌더하지 않음 when onDelete를 생략', () => {
+    render(<Tag label="react" />);
+
+    expect(screen.getByText('react')).toBeInTheDocument();
+    expect(screen.queryAllByRole('button')).toHaveLength(0);
+  });
 });

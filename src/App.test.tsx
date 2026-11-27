@@ -468,4 +468,35 @@ describe('App 휴지통 미리보기 (Trash 이슈 2)', () => {
     expect(screen.getByRole('textbox', { name: '노트 내용' })).toHaveValue('');
     expect(screen.queryByDisplayValue('제목 A')).not.toBeInTheDocument();
   });
+
+  // A12
+  it('should 메인에 해당 노트의 태그가 삭제 버튼 없이 표시 when 태그가 있는 휴지통 노트를 선택', async () => {
+    serverNotes = serverNotes.map((n) =>
+      n.id === 'test-3' ? { ...n, tags: ['react', 'design'] } : n,
+    );
+    const user = await openTrash();
+
+    await user.click(screen.getByText('삭제된 노트 C'));
+
+    expect(await screen.findByText('react')).toBeInTheDocument();
+    expect(screen.getByText('design')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /태그 삭제/ })).not.toBeInTheDocument();
+  });
+
+  // A13
+  it('should 미리보기의 태그가 새로 선택한 노트의 태그로 교체됨 when 태그가 다른 두 휴지통 노트를 차례로 선택', async () => {
+    serverNotes = serverNotes.map((n) => {
+      if (n.id === 'test-3') return { ...n, tags: ['react'] };
+      if (n.id === 'test-4') return { ...n, tags: ['vue'] };
+      return n;
+    });
+    const user = await openTrash();
+    await user.click(screen.getByText('삭제된 노트 C'));
+    expect(await screen.findByText('react')).toBeInTheDocument();
+
+    await user.click(screen.getAllByText('삭제된 노트 D')[0]);
+
+    expect(await screen.findByText('vue')).toBeInTheDocument();
+    expect(screen.queryByText('react')).not.toBeInTheDocument();
+  });
 });

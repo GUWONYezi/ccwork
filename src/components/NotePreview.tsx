@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import type { Note } from '../types/note';
+import { TagList } from './TagList';
 
 interface NotePreviewProps {
   note: Note | null; // null이면 "선택 안내" 문구를 표시
@@ -15,11 +16,20 @@ export function NotePreview({ note }: NotePreviewProps): ReactElement {
     );
   }
 
+  const tags = note.tags ?? [];
+
   return (
     // min-h: 일반 노트 상세(NoteEditor 카드)와 높이를 맞춘다
     <div className="bg-surface-container-lowest rounded-md px-8 sm:px-12 py-8 max-w-2xl min-h-[40.5rem]">
       {/* 제목 */}
       <h2 className="text-xl font-bold text-on-surface mb-4">{note.title || '(제목 없음)'}</h2>
+
+      {/* 태그 */}
+      {tags.length > 0 && (
+        <div className="mb-4">
+          <TagList tags={tags} />
+        </div>
+      )}
 
       {/* 내용 */}
       <p className="text-base text-on-surface-variant leading-relaxed whitespace-pre-wrap">
