@@ -3,23 +3,45 @@ import { NotesProvider, useNotes } from './context/NotesContext';
 import { Layout } from './components/Layout';
 import { NoteList } from './components/NoteList';
 import { NoteEditor } from './components/NoteEditor';
+import { NotePreview } from './components/NotePreview';
 import { SidebarFooter } from './components/SidebarFooter';
 import { TrashList } from './components/TrashList';
 
 interface TrashSidebarProps {
+  selectedTrashId: string | null;
+  onSelect: (id: string) => void;
   onBack: () => void;
 }
 
 // 휴지통 목록: Context의 trashedNotes를 순수 컴포넌트에 연결
-function TrashSidebar({ onBack }: TrashSidebarProps) {
+function TrashSidebar({ selectedTrashId, onSelect, onBack }: TrashSidebarProps) {
   const { trashedNotes } = useNotes();
-  return <TrashList notes={trashedNotes} onBack={onBack} />;
+  return (
+    <TrashList
+      notes={trashedNotes}
+      selectedId={selectedTrashId}
+      onSelect={onSelect}
+      onBack={onBack}
+    />
+  );
+}
+
+interface TrashPreviewProps {
+  selectedTrashId: string | null;
+}
+
+// 휴지통 미리보기: 선택된 휴지통 노트를 읽기 전용으로 연결
+function TrashPreview({ selectedTrashId }: TrashPreviewProps) {
+  const { trashedNotes } = useNotes();
+  const note = trashedNotes.find((n) => n.id === selectedTrashId) ?? null;
+  return <NotePreview note={note} />;
 }
 
 function App() {
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [sidebarView, setSidebarView] = useState<'notes' | 'trash'>('notes');
+  const [selectedTrashId, setSelectedTrashId] = useState<string | null>(null);
 
   const handleSelectNote = (id: string) => {
     setSelectedNoteId(id);
@@ -28,6 +50,8 @@ function App() {
 
   const handleNewNote = () => {
     setSelectedNoteId(null);
+    setSelectedTrashId(null);
+    setSidebarView('notes');
     setIsCreating(true);
   };
 
@@ -42,7 +66,12 @@ function App() {
 
   const handleOpenTrash = () => setSidebarView('trash');
 
-  const handleCloseTrash = () => setSidebarView('notes');
+  const handleCloseTrash = () => {
+    setSidebarView('notes');
+    setSelectedTrashId(null);
+  };
+
+  const handleSelectTrash = (id: string) => setSelectedTrashId(id);
 
   return (
     <NotesProvider>
@@ -50,7 +79,11 @@ function App() {
         onNewNote={handleNewNote}
         sidebar={
           sidebarView === 'trash' ? (
-            <TrashSidebar onBack={handleCloseTrash} />
+            <TrashSidebar
+              selectedTrashId={selectedTrashId}
+              onSelect={handleSelectTrash}
+              onBack={handleCloseTrash}
+            />
           ) : (
             <>
               <NoteList
@@ -63,7 +96,15 @@ function App() {
           )
         }
         main={
-          <NoteEditor selectedNoteId={selectedNoteId} isCreating={isCreating} onDone={handleDone} />
+          sidebarView === 'trash' ? (
+            <TrashPreview selectedTrashId={selectedTrashId} />
+          ) : (
+            <NoteEditor
+              selectedNoteId={selectedNoteId}
+              isCreating={isCreating}
+              onDone={handleDone}
+            />
+          )
         }
       />
     </NotesProvider>
