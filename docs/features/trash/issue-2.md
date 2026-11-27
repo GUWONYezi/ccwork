@@ -18,6 +18,31 @@ export declare function NotePreview({ note }: NotePreviewProps): JSX.Element;
 // 빈 값은 '(제목 없음)', '(내용 없음)' 표시 (NoteItem과 동일)
 ```
 
+### src/components/NotePreview.tsx (수정, 표현: 태그 표시 추가)
+
+```ts
+// Props 변경 없음. 제목과 내용 사이에 <TagList tags={note.tags ?? []} /> 를 렌더링한다.
+// onDelete를 넘기지 않으므로 태그는 읽기 전용이고, tags가 없거나 빈 배열이면 태그 영역이 없다.
+```
+
+### src/components/Tag.tsx (수정, 표현)
+
+```ts
+interface TagProps {
+  label: string;
+  onDelete?: () => void; // 생략하면 삭제 버튼을 렌더링하지 않는다 (읽기 전용)
+}
+```
+
+### src/components/TagList.tsx (수정, 표현)
+
+```ts
+interface TagListProps {
+  tags: string[];
+  onDelete?: (index: number) => void; // 생략하면 모든 Tag가 읽기 전용
+}
+```
+
 ### src/components/TrashList.tsx (수정, 표현)
 
 ```ts
@@ -50,7 +75,7 @@ function TrashPreview({ selectedTrashId }: TrashPreviewProps): JSX.Element;
 
 #### 에러 케이스
 
-- 이 이슈에는 `throw`와 서버 호출이 없다. 에러 케이스는 없다.
+- 이 이슈에는 `throw`와 서버 호출이 없다. 에러 케이스는 없다. (태그 표시 추가분도 마찬가지)
 - `selectedTrashId`가 `trashedNotes`에 없으면 `null`로 취급해 `NotePreview`가 선택 안내 문구를 보여준다 (결과값 처리, 에러 아님).
 
 ## 테스트 시나리오
@@ -59,6 +84,9 @@ function TrashPreview({ selectedTrashId }: TrashPreviewProps): JSX.Element;
 
 - [x] P1 `[정상] NotePreview — should 제목과 내용을 표시 when note가 주어짐`
 - [x] P2 `[정상] NotePreview — should 입력창/저장 버튼 없이 읽기 전용으로 렌더링 when note가 주어짐`
+- [x] P6 `[정상] NotePreview — should 태그를 제목과 내용 사이에 표시 when note에 tags가 있음`
+- [x] P7 `[정상] NotePreview — should 태그에 삭제 버튼이 없음 when note에 tags가 있음`
+- [x] L1 `[정상] TagList — should 모든 태그를 삭제 버튼 없이 표시 when onDelete를 넘기지 않음`
 - [x] T1 `[정상] TrashList — should onSelect를 해당 id로 호출 when 항목 클릭`
 - [x] T2 `[정상] TrashList — should 해당 항목을 선택 상태로 강조 when selectedId가 노트 id와 일치`
 - [x] A1 `[정상] App — should 메인 영역에 해당 노트의 제목과 내용을 표시하고 그 항목을 강조 when 휴지통 뷰에서 항목 클릭`
@@ -67,18 +95,23 @@ function TrashPreview({ selectedTrashId }: TrashPreviewProps): JSX.Element;
 - [x] A4 `[정상] App — should 미리보기가 사라지고 휴지통 선택이 해제됨 when 노트를 미리보기 중 "+ 새 노트" 클릭`
 - [x] A5 `[정상] App — should 새 노트가 일반 목록에 나타나고 휴지통에는 나타나지 않음 when 휴지통 뷰에서 "+ 새 노트"로 새 노트를 저장`
 - [x] A6 `[정상] App — should 선택 안내 문구가 표시됨(이전 선택이 해제됨) when 미리보기 후 일반 목록으로 돌아갔다가 휴지통을 다시 연 경우`
+- [x] A12 `[정상] App — should 메인에 해당 노트의 태그가 삭제 버튼 없이 표시 when 태그가 있는 휴지통 노트를 선택`
 
 ### 경계
 
 - [x] P3 `[경계] NotePreview — should "(제목 없음)"을 표시 when title이 빈 문자열`
 - [x] P4 `[경계] NotePreview — should "(내용 없음)"을 표시 when content가 빈 문자열`
 - [x] P5 `[경계] NotePreview — should 선택 안내 문구를 표시하고 제목/내용 영역은 없음 when note가 null`
+- [x] P8 `[경계] NotePreview — should 태그 영역을 렌더링하지 않고 에러가 없음 when tags 필드가 없는 노트`
+- [x] P9 `[경계] NotePreview — should 태그 영역을 렌더링하지 않음 when tags가 빈 배열`
 - [x] T3 `[경계] TrashList — should 어떤 항목도 강조하지 않음 when selectedId가 null이고, id 지정 후 다시 null로 바뀜`
 - [x] T4 `[경계] TrashList — should 어떤 항목도 강조하지 않고 에러가 나지 않음 when selectedId가 notes에 없는 id`
 - [x] A7 `[경계] App — should 메인 영역에 선택 안내 문구를 표시 when 휴지통 뷰를 열었고 아직 선택한 노트가 없음`
 - [x] A8 `[경계] App — should 미리보기가 새로 선택한 노트로 교체되고 강조도 옮겨감 when 미리보기 중 다른 휴지통 항목 클릭`
 - [x] A10 `[경계] App 미리보기 — should 메인에 "(제목 없음)"과 "(내용 없음)"이 표시되고 에러가 없음 when 제목/내용이 빈 휴지통 노트를 선택`
 - [x] A11 `[경계] App — should 이전 일반 목록 선택/생성 상태가 에디터에 남지 않음 when 노트 선택 후 휴지통을 열었다가 "+ 새 노트" 클릭`
+- [x] A13 `[경계] App — should 미리보기의 태그가 새로 선택한 노트의 태그로 교체됨 when 태그가 다른 두 휴지통 노트를 차례로 선택`
+- [x] T10 `[경계] Tag — should 삭제 버튼을 렌더하지 않음 when onDelete를 생략`
 
 ### 예외
 
@@ -86,15 +119,16 @@ function TrashPreview({ selectedTrashId }: TrashPreviewProps): JSX.Element;
 
 ## AC 커버리지
 
-| AC                                                                     | 시나리오           |
-| ---------------------------------------------------------------------- | ------------------ |
-| 항목 클릭 → 메인에 제목/내용 표시 + 항목 강조                          | P1, T1, T2, A1, A8 |
-| 미리보기는 입력창/저장 버튼 없이 읽기 전용                             | P2                 |
-| 선택이 없으면 메인은 비어 있거나 안내 문구                             | P5, T3, A7         |
-| 일반 목록으로 돌아가면 `NoteEditor` 복귀, 휴지통 선택 해제             | A2, A6             |
-| 제목/내용이 빈 노트는 `(제목 없음)`, `(내용 없음)`                     | P3, P4, A10        |
-| 휴지통 뷰에서 "+ 새 노트" → 일반 목록 전환 + 빈 `NoteEditor` 생성 모드 | A3, A11            |
-| 미리보기 중 "+ 새 노트" → 선택 해제, 미리보기 사라짐                   | A4                 |
-| 휴지통 뷰에서 저장한 새 노트는 일반 목록에만 나타남                    | A5                 |
+| AC                                                                                   | 시나리오                          |
+| ------------------------------------------------------------------------------------ | --------------------------------- |
+| 항목 클릭 → 메인에 제목/내용 표시 + 항목 강조                                        | P1, T1, T2, A1, A8                |
+| 미리보기는 입력창/저장 버튼 없이 읽기 전용                                           | P2                                |
+| 선택이 없으면 메인은 비어 있거나 안내 문구                                           | P5, T3, A7                        |
+| 일반 목록으로 돌아가면 `NoteEditor` 복귀, 휴지통 선택 해제                           | A2, A6                            |
+| 제목/내용이 빈 노트는 `(제목 없음)`, `(내용 없음)`                                   | P3, P4, A10                       |
+| 휴지통 뷰에서 "+ 새 노트" → 일반 목록 전환 + 빈 `NoteEditor` 생성 모드               | A3, A11                           |
+| 미리보기 중 "+ 새 노트" → 선택 해제, 미리보기 사라짐                                 | A4                                |
+| 휴지통 뷰에서 저장한 새 노트는 일반 목록에만 나타남                                  | A5                                |
+| 태그가 있는 휴지통 노트 → 제목과 내용 사이에 읽기 전용 표시, 태그가 없으면 영역 없음 | P6, P7, P8, P9, L1, T10, A12, A13 |
 
 AC 밖 시나리오: T4(시그니처 계약: 없는 id).
