@@ -5,9 +5,9 @@ import { NoteList } from './components/NoteList';
 import { NoteEditor } from './components/NoteEditor';
 import { NotePreview } from './components/NotePreview';
 import { Confirm } from './components/Confirm';
-import { useConfirmAction } from './hooks/useConfirmAction';
 import { SidebarFooter } from './components/SidebarFooter';
 import { TrashList } from './components/TrashList';
+import { useConfirmAction } from './hooks/useConfirmAction';
 
 interface TrashSidebarProps {
   selectedTrashId: string | null;

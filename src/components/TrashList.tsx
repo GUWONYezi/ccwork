@@ -28,6 +28,7 @@ export function TrashList({ notes, selectedId, onSelect, onRestore, onBack }: Tr
       {/* 휴지통 노트 */}
       {notes.map((note) => {
         const isSelected = note.id === selectedId;
+        const title = note.title || '(제목 없음)';
 
         return (
           <div
@@ -42,12 +43,10 @@ export function TrashList({ notes, selectedId, onSelect, onRestore, onBack }: Tr
           >
             {/* 제목 줄 */}
             <div className="flex items-start justify-between gap-2">
-              <h3 className="font-semibold text-sm text-on-surface line-clamp-1 flex-1">
-                {note.title || '(제목 없음)'}
-              </h3>
+              <h3 className="font-semibold text-sm text-on-surface line-clamp-1 flex-1">{title}</h3>
               <button
                 type="button"
-                aria-label={`${note.title || '(제목 없음)'} 복구`}
+                aria-label={`${title} 복구`}
                 onClick={(e) => {
                   e.stopPropagation();
                   onRestore(note.id);
