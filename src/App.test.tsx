@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from './App';
@@ -498,5 +498,211 @@ describe('App 휴지통 미리보기 (Trash 이슈 2)', () => {
 
     expect(await screen.findByText('vue')).toBeInTheDocument();
     expect(screen.queryByText('react')).not.toBeInTheDocument();
+  });
+});
+
+describe('App 휴지통 복구 (Trash 이슈 3)', () => {
+  let serverNotes: Note[];
+
+  const GUIDE_TEXT = '노트를 선택하세요';
+  const EDITOR_GUIDE_TEXT = '노트를 선택하거나 새 노트를 만드세요';
+  // 날짜 경계에서 먼 정오 UTC 값을 쓰고, 기대값은 같은 방식으로 계산해 타임존 영향을 없앤다
+  const formatDate = (iso: string) => new Date(iso).toLocaleDateString('ko-KR');
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    serverNotes = [
+      createTestNote({ id: 'test-1', title: '제목 A', content: '내용 A' }),
+      createTestNote({
+        id: 'test-3',
+        title: '삭제된 노트 C',
+        content: '내용 C',
+        deletedAt: '2025-01-10T12:00:00.000Z',
+        tags: ['react', 'design'],
+      }),
+      createTestNote({
+        id: 'test-4',
+        title: '삭제된 노트 D',
+        content: '내용 D',
+        deletedAt: '2025-01-05T12:00:00.000Z',
+      }),
+    ];
+    vi.mocked(api.fetchNotes).mockImplementation(async () => serverNotes);
+    // api.updateNote와 같이 updatedAt을 현재 일시로 갱신해 돌려준다
+    vi.mocked(api.updateNote).mockImplementation(async (id, updates) => {
+      const updated = {
+        ...serverNotes.find((n) => n.id === id)!,
+        ...updates,
+        updatedAt: new Date().toISOString(),
+      };
+      serverNotes = serverNotes.map((n) => (n.id === id ? updated : n));
+      return updated;
+    });
+    vi.spyOn(window, 'alert').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  async function openTrash() {
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText('제목 A'); // 목록 로딩 완료
+    await user.click(screen.getByRole('button', { name: '휴지통' }));
+    await screen.findByText('삭제된 노트 C');
+    return user;
+  }
+
+  const restoreButton = (title: string) => screen.getByRole('button', { name: `${title} 복구` });
+
+  async function restoreWithConfirm(user: ReturnType<typeof userEvent.setup>, title: string) {
+    await user.click(restoreButton(title));
+    await user.click(await screen.findByRole('button', { name: '확인' }));
+  }
+
+  // A1
+  it('should 복구 Confirm을 표시하고 서버 호출 없이 노트는 휴지통에 그대로 있음 when 항목의 복구 버튼 클릭', async () => {
+    const user = await openTrash();
+
+    await user.click(restoreButton('삭제된 노트 C'));
+
+    expect(await screen.findByRole('alertdialog', { name: '노트 복구' })).toBeInTheDocument();
+    expect(api.updateNote).not.toHaveBeenCalled();
+    expect(screen.getByText('삭제된 노트 C')).toBeInTheDocument();
+  });
+
+  // A2
+  it('should 서버 호출 없이 Confirm이 닫히고 노트가 휴지통에 남음 when 복구 Confirm에서 취소 클릭', async () => {
+    const user = await openTrash();
+    await user.click(restoreButton('삭제된 노트 C'));
+    await screen.findByRole('alertdialog', { name: '노트 복구' });
+
+    await user.click(screen.getByRole('button', { name: '취소' }));
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(api.updateNote).not.toHaveBeenCalled();
+    expect(screen.getByText('삭제된 노트 C')).toBeInTheDocument();
+  });
+
+  // A3
+  it('should updateNote를 해당 id와 { deletedAt: null }로 호출하고 휴지통 목록에서 노트가 사라짐 when 복구 Confirm에서 확인 클릭', async () => {
+    const user = await openTrash();
+
+    await restoreWithConfirm(user, '삭제된 노트 C');
+
+    await waitFor(() => expect(screen.queryByText('삭제된 노트 C')).not.toBeInTheDocument());
+    expect(api.updateNote).toHaveBeenCalledWith('test-3', { deletedAt: null });
+    expect(screen.getByText('삭제된 노트 D')).toBeInTheDocument();
+  });
+
+  // A4
+  it('should 복구한 노트가 일반 목록에 나타남 when 복구 후 "목록으로 돌아가기" 클릭', async () => {
+    const user = await openTrash();
+    await restoreWithConfirm(user, '삭제된 노트 C');
+    await waitFor(() => expect(screen.queryByText('삭제된 노트 C')).not.toBeInTheDocument());
+
+    await user.click(screen.getByRole('button', { name: /돌아가기/ }));
+
+    expect(await screen.findByText('삭제된 노트 C')).toBeInTheDocument();
+    expect(screen.getByText('제목 A')).toBeInTheDocument();
+    expect(screen.queryByText('삭제된 노트 D')).not.toBeInTheDocument();
+  });
+
+  // A5
+  it('should 일반 목록 카드에 태그 개수가 표시됨 when 태그가 있는 휴지통 노트를 복구하고 일반 목록으로 돌아감', async () => {
+    const user = await openTrash();
+    await restoreWithConfirm(user, '삭제된 노트 C');
+    await waitFor(() => expect(screen.queryByText('삭제된 노트 C')).not.toBeInTheDocument());
+
+    await user.click(screen.getByRole('button', { name: /돌아가기/ }));
+
+    expect(await screen.findByText('삭제된 노트 C')).toBeInTheDocument();
+    expect(screen.getByText('태그 2')).toBeInTheDocument();
+  });
+
+  // A6
+  it('should 사이드바는 휴지통 뷰에 머물고 미리보기는 안내 문구로 바뀜 when 미리보기 중인 노트를 복구', async () => {
+    const user = await openTrash();
+    await user.click(screen.getByText('삭제된 노트 C'));
+    expect(await screen.findByText('내용 C')).toBeInTheDocument(); // 미리보기 중
+
+    await restoreWithConfirm(user, '삭제된 노트 C');
+
+    expect(await screen.findByText(GUIDE_TEXT)).toBeInTheDocument();
+    expect(screen.queryByText('내용 C')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /돌아가기/ })).toBeInTheDocument(); // 휴지통 뷰 유지
+    expect(screen.getByText('삭제된 노트 D')).toBeInTheDocument();
+  });
+
+  // A7
+  it('should 카드의 수정일(updatedAt)이 복구한 날짜로 표시됨 when 복구 후 일반 목록으로 돌아감', async () => {
+    const restoredAt = '2025-02-01T12:00:00.000Z';
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(restoredAt));
+    const user = await openTrash();
+    await restoreWithConfirm(user, '삭제된 노트 C');
+    await waitFor(() => expect(screen.queryByText('삭제된 노트 C')).not.toBeInTheDocument());
+
+    await user.click(screen.getByRole('button', { name: /돌아가기/ }));
+
+    expect(await screen.findByText('삭제된 노트 C')).toBeInTheDocument();
+    expect(screen.getByText(formatDate(restoredAt))).toBeInTheDocument();
+  });
+
+  // A8
+  it('should 미리보기가 그대로 유지됨 when 다른 노트를 미리보기 중 다른 노트를 복구', async () => {
+    const user = await openTrash();
+    await user.click(screen.getByText('삭제된 노트 D'));
+    expect(await screen.findByText('내용 D')).toBeInTheDocument(); // D를 미리보기 중
+
+    await restoreWithConfirm(user, '삭제된 노트 C'); // C를 복구
+
+    await waitFor(() => expect(screen.queryByText('삭제된 노트 C')).not.toBeInTheDocument());
+    expect(screen.getByText('내용 D')).toBeInTheDocument();
+    expect(screen.queryByText(GUIDE_TEXT)).not.toBeInTheDocument();
+  });
+
+  // A9
+  it('should updateNote를 한 번만 호출 when 복구 Confirm의 확인을 연속으로 두 번 클릭', async () => {
+    // 응답이 늦게 오는 서버를 흉내내 첫 호출이 끝나기 전에 두 번째 클릭이 들어오게 한다
+    vi.mocked(api.updateNote).mockImplementation(async (id, updates) => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      return { ...serverNotes.find((n) => n.id === id)!, ...updates };
+    });
+    const user = await openTrash();
+    await user.click(restoreButton('삭제된 노트 C'));
+    const confirmButton = await screen.findByRole('button', { name: '확인' });
+
+    await user.dblClick(confirmButton);
+
+    await waitFor(() => expect(api.updateNote).toHaveBeenCalled());
+    expect(api.updateNote).toHaveBeenCalledTimes(1);
+  });
+
+  // A10
+  it('should alert로 실패를 알리고 노트가 휴지통에 남음 when updateNote가 reject', async () => {
+    vi.mocked(api.updateNote).mockRejectedValue(new Error('Failed to update note'));
+    const user = await openTrash();
+
+    await restoreWithConfirm(user, '삭제된 노트 C');
+
+    await waitFor(() => expect(window.alert).toHaveBeenCalledTimes(1));
+    expect(screen.getByText('삭제된 노트 C')).toBeInTheDocument();
+  });
+
+  // A11
+  // 회귀 테스트: 기존 App이 복구한 노트를 선택하지 않아 Red 단계에서도 통과한다. (자동 선택하지 않는다는 결정을 고정)
+  it('should 복구한 노트가 선택되지 않고 메인에 선택 안내 문구가 표시됨 when 복구 후 "목록으로 돌아가기" 클릭', async () => {
+    const user = await openTrash();
+    await restoreWithConfirm(user, '삭제된 노트 C');
+    await waitFor(() => expect(screen.queryByText('삭제된 노트 C')).not.toBeInTheDocument());
+
+    await user.click(screen.getByRole('button', { name: /돌아가기/ }));
+
+    expect(await screen.findByText('삭제된 노트 C')).toBeInTheDocument(); // 일반 목록에 나타남
+    expect(screen.getByText(EDITOR_GUIDE_TEXT)).toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: '노트 제목' })).not.toBeInTheDocument();
   });
 });

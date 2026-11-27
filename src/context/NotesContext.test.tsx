@@ -216,3 +216,99 @@ describe('NotesContext 휴지통 (Trash 이슈 1)', () => {
     expect(result.current.trashedNotes).toEqual([]);
   });
 });
+
+describe('NotesContext.restoreNote (Trash 이슈 3)', () => {
+  const trashedTagged: Note = {
+    id: 'test-trashed-1',
+    title: '태그가 있는 삭제 노트',
+    content: '내용',
+    createdAt: '2025-01-01T00:00:00.000Z',
+    updatedAt: '2025-01-01T00:00:00.000Z',
+    deletedAt: '2025-01-10T12:00:00.000Z',
+    tags: ['react', 'design'],
+  };
+  const trashedOther: Note = {
+    id: 'test-trashed-2',
+    title: '다른 삭제 노트',
+    content: '내용',
+    createdAt: '2025-01-02T00:00:00.000Z',
+    updatedAt: '2025-01-02T00:00:00.000Z',
+    deletedAt: '2025-01-05T12:00:00.000Z',
+  };
+  const restoredAt = '2025-02-01T12:00:00.000Z';
+  // 서버가 돌려주는 복구된 노트: deletedAt 제거, updatedAt 갱신, tags 유지
+  const restored: Note = { ...trashedTagged, deletedAt: null, updatedAt: restoredAt };
+
+  async function setup(initial: Note[]) {
+    vi.mocked(api.fetchNotes).mockResolvedValue(initial);
+    const hook = renderHook(() => useNotes(), { wrapper: NotesProvider });
+    await waitFor(() => expect(hook.result.current.loading).toBe(false));
+    return hook;
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  // R1
+  it('should api.updateNote를 해당 id와 { deletedAt: null }로 호출 when restoreNote(id)', async () => {
+    vi.mocked(api.updateNote).mockResolvedValue(restored);
+    const { result } = await setup([testNotes[0], trashedTagged]);
+
+    await act(() => result.current.restoreNote('test-trashed-1'));
+
+    expect(api.updateNote).toHaveBeenCalledTimes(1);
+    expect(api.updateNote).toHaveBeenCalledWith('test-trashed-1', { deletedAt: null });
+  });
+
+  // R2
+  it('should 해당 노트를 trashedNotes에서 제거하고 notes에 포함 when 서버가 성공 응답', async () => {
+    vi.mocked(api.updateNote).mockResolvedValue(restored);
+    const { result } = await setup([testNotes[0], trashedTagged]);
+
+    await act(() => result.current.restoreNote('test-trashed-1'));
+
+    expect(result.current.trashedNotes.map((n) => n.id)).toEqual([]);
+    expect(result.current.notes.map((n) => n.id)).toContain('test-trashed-1');
+  });
+
+  // R3
+  it('should 서버 응답의 updatedAt과 tags를 가진 노트로 notes에 반영 when 태그가 있는 휴지통 노트를 복구', async () => {
+    vi.mocked(api.updateNote).mockResolvedValue(restored);
+    const { result } = await setup([testNotes[0], trashedTagged]);
+
+    await act(() => result.current.restoreNote('test-trashed-1'));
+
+    const note = result.current.notes.find((n) => n.id === 'test-trashed-1');
+    expect(note).toEqual(restored);
+    expect(note?.updatedAt).toBe(restoredAt);
+    expect(note?.tags).toEqual(['react', 'design']);
+  });
+
+  // R4
+  it('should 다른 휴지통 노트와 일반 노트를 그대로 둠 when 휴지통 노트 하나만 복구', async () => {
+    vi.mocked(api.updateNote).mockResolvedValue(restored);
+    const { result } = await setup([testNotes[0], trashedTagged, trashedOther, testNotes[1]]);
+
+    await act(() => result.current.restoreNote('test-trashed-1'));
+
+    expect(result.current.trashedNotes).toEqual([trashedOther]);
+    expect(result.current.notes.find((n) => n.id === 'test-1')).toEqual(testNotes[0]);
+    expect(result.current.notes.find((n) => n.id === 'test-2')).toEqual(testNotes[1]);
+  });
+
+  // R5
+  it('should reject하고 notes와 trashedNotes를 바꾸지 않음 when 서버가 !res.ok 응답', async () => {
+    vi.mocked(api.updateNote).mockRejectedValue(new Error('Failed to update note'));
+    const { result } = await setup([testNotes[0], trashedTagged]);
+
+    await act(async () => {
+      await expect(result.current.restoreNote('test-trashed-1')).rejects.toThrow(
+        'Failed to update note',
+      );
+    });
+
+    expect(result.current.notes).toEqual([testNotes[0]]);
+    expect(result.current.trashedNotes).toEqual([trashedTagged]);
+  });
+});

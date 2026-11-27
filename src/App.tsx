@@ -4,25 +4,60 @@ import { Layout } from './components/Layout';
 import { NoteList } from './components/NoteList';
 import { NoteEditor } from './components/NoteEditor';
 import { NotePreview } from './components/NotePreview';
+import { Confirm } from './components/Confirm';
 import { SidebarFooter } from './components/SidebarFooter';
 import { TrashList } from './components/TrashList';
+import { useConfirmAction } from './hooks/useConfirmAction';
 
 interface TrashSidebarProps {
   selectedTrashId: string | null;
   onSelect: (id: string) => void;
+  onRestored: (id: string) => void;
   onBack: () => void;
 }
 
-// 휴지통 목록: Context의 trashedNotes를 순수 컴포넌트에 연결
-function TrashSidebar({ selectedTrashId, onSelect, onBack }: TrashSidebarProps) {
-  const { trashedNotes } = useNotes();
+// 휴지통 목록: Context의 trashedNotes를 순수 컴포넌트에 연결하고 복구 확인을 처리
+function TrashSidebar({ selectedTrashId, onSelect, onRestored, onBack }: TrashSidebarProps) {
+  const { trashedNotes, restoreNote } = useNotes();
+
+  const restoreConfirm = useConfirmAction<string>(async (id) => {
+    await restoreNote(id);
+    onRestored(id);
+  });
+
+  const handleConfirmRestore = async () => {
+    try {
+      await restoreConfirm.confirm();
+    } catch (e) {
+      console.error('복구에 실패했습니다', e);
+      alert('복구에 실패했습니다');
+    }
+  };
+
   return (
-    <TrashList
-      notes={trashedNotes}
-      selectedId={selectedTrashId}
-      onSelect={onSelect}
-      onBack={onBack}
-    />
+    <>
+      <TrashList
+        notes={trashedNotes}
+        selectedId={selectedTrashId}
+        onSelect={onSelect}
+        onRestore={restoreConfirm.request}
+        onBack={onBack}
+      />
+
+      {/* 복구 확인 */}
+      {restoreConfirm.pending !== null && (
+        <div className="fixed inset-0 z-10 flex items-center justify-center">
+          <Confirm
+            variant="info"
+            title="노트 복구"
+            onConfirm={handleConfirmRestore}
+            onCancel={restoreConfirm.cancel}
+          >
+            이 노트를 복구할까요?
+          </Confirm>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -73,6 +108,10 @@ function App() {
 
   const handleSelectTrash = (id: string) => setSelectedTrashId(id);
 
+  const handleRestored = (id: string) => {
+    if (id === selectedTrashId) setSelectedTrashId(null);
+  };
+
   const isTrashView = sidebarView === 'trash';
 
   return (
@@ -84,6 +123,7 @@ function App() {
             <TrashSidebar
               selectedTrashId={selectedTrashId}
               onSelect={handleSelectTrash}
+              onRestored={handleRestored}
               onBack={handleCloseTrash}
             />
           ) : (

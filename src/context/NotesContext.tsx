@@ -12,6 +12,7 @@ interface NotesContextType {
   updateNote: (id: string, updates: Partial<Note>) => Promise<void>;
   deleteNote: (id: string) => Promise<void>;
   trashNote: (id: string) => Promise<void>;
+  restoreNote: (id: string) => Promise<void>;
 }
 
 const NotesContext = createContext<NotesContextType | null>(null);
@@ -49,6 +50,8 @@ export function NotesProvider({ children }: { children: ReactNode }) {
 
   const trashNote = (id: string) => updateNote(id, { deletedAt: new Date().toISOString() });
 
+  const restoreNote = (id: string) => updateNote(id, { deletedAt: null });
+
   return (
     <NotesContext.Provider
       value={{
@@ -60,6 +63,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
         updateNote,
         deleteNote,
         trashNote,
+        restoreNote,
       }}
     >
       {children}
