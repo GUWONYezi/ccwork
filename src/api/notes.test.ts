@@ -106,3 +106,38 @@ describe('api.createNote 태그 (이슈 5)', () => {
     expect('tags' in JSON.parse(init.body)).toBe(false);
   });
 });
+
+describe('api.updateNote 복구 (Trash 이슈 3)', () => {
+  // 실제 서버(localhost:3001, db.json)로 요청이 나가지 않도록 fetch를 대체한다
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    fetchMock.mockReset();
+    vi.stubGlobal('fetch', fetchMock);
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2025-01-15T09:00:00.000Z'));
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  // N1 — 회귀 테스트: 기존 updateNote가 이미 충족하는 동작이라 Red 단계에서도 통과한다.
+  it('should PATCH 본문에 deletedAt: null과 현재 일시의 updatedAt을 담음 when updates가 { deletedAt: null }', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ ...testNote, deletedAt: null }),
+    });
+
+    await updateNote('test-1', { deletedAt: null });
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('http://localhost:3001/notes/test-1');
+    expect(init.method).toBe('PATCH');
+    expect(JSON.parse(init.body)).toEqual({
+      deletedAt: null,
+      updatedAt: '2025-01-15T09:00:00.000Z',
+    });
+  });
+});

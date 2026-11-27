@@ -4,10 +4,11 @@ interface TrashListProps {
   notes: Note[]; // 이미 정렬된 휴지통 노트
   selectedId: string | null; // 선택된 항목 강조용
   onSelect: (id: string) => void; // 항목 클릭 시 호출
+  onRestore: (id: string) => void; // 복구 버튼 클릭 시 호출 (복구 Confirm 요청)
   onBack: () => void;
 }
 
-export function TrashList({ notes, selectedId, onSelect, onBack }: TrashListProps) {
+export function TrashList({ notes, selectedId, onSelect, onRestore, onBack }: TrashListProps) {
   return (
     <div className="flex flex-col gap-[1.4rem]">
       {/* 돌아가기 */}
@@ -39,9 +40,23 @@ export function TrashList({ notes, selectedId, onSelect, onBack }: TrashListProp
                 : 'bg-surface-container-lowest hover:bg-surface'
             }`}
           >
-            <h3 className="font-semibold text-sm text-on-surface line-clamp-1">
-              {note.title || '(제목 없음)'}
-            </h3>
+            {/* 제목 줄 */}
+            <div className="flex items-start justify-between gap-2">
+              <h3 className="font-semibold text-sm text-on-surface line-clamp-1 flex-1">
+                {note.title || '(제목 없음)'}
+              </h3>
+              <button
+                type="button"
+                aria-label={`${note.title || '(제목 없음)'} 복구`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRestore(note.id);
+                }}
+                className="shrink-0 rounded-md px-2 py-1 text-xs text-tertiary hover:bg-tertiary/2 cursor-pointer"
+              >
+                복구
+              </button>
+            </div>
             <p className="text-xs uppercase tracking-[0.05em] text-on-surface-variant mt-2">
               {note.deletedAt ? new Date(note.deletedAt).toLocaleDateString('ko-KR') : ''}
             </p>
