@@ -74,4 +74,13 @@ describe('TagList', () => {
 
     expect(onDelete).toHaveBeenCalledWith(1);
   });
+
+  // L1
+  it('should 모든 태그를 삭제 버튼 없이 표시 when onDelete를 넘기지 않음', () => {
+    render(<TagList tags={['react', 'design']} />);
+
+    expect(screen.getByText('react')).toBeInTheDocument();
+    expect(screen.getByText('design')).toBeInTheDocument();
+    expect(screen.queryAllByRole('button')).toHaveLength(0);
+  });
 });

@@ -276,3 +276,227 @@ describe('App 휴지통 전환 (Trash 이슈 1, 추가 시나리오)', () => {
     expect(screen.queryByText('제목 B')).not.toBeInTheDocument();
   });
 });
+
+describe('App 휴지통 미리보기 (Trash 이슈 2)', () => {
+  let serverNotes: Note[];
+
+  const GUIDE_TEXT = '노트를 선택하세요';
+  const EDITOR_GUIDE_TEXT = '노트를 선택하거나 새 노트를 만드세요';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    serverNotes = [
+      createTestNote({ id: 'test-1', title: '제목 A', content: '내용 A' }),
+      createTestNote({
+        id: 'test-3',
+        title: '삭제된 노트 C',
+        content: '내용 C',
+        deletedAt: '2025-01-10T12:00:00.000Z',
+      }),
+      createTestNote({
+        id: 'test-4',
+        title: '삭제된 노트 D',
+        content: '내용 D',
+        deletedAt: '2025-01-05T12:00:00.000Z',
+      }),
+    ];
+    vi.mocked(api.fetchNotes).mockImplementation(async () => serverNotes);
+    vi.mocked(api.createNote).mockImplementation(async (note) => {
+      const created: Note = {
+        id: 'test-new',
+        createdAt: '2025-01-15T09:00:00.000Z',
+        updatedAt: '2025-01-15T09:00:00.000Z',
+        ...note,
+      };
+      serverNotes = [...serverNotes, created];
+      return created;
+    });
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  async function openTrash() {
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText('제목 A'); // 목록 로딩 완료
+    await user.click(screen.getByRole('button', { name: '휴지통' }));
+    await screen.findByText('삭제된 노트 C');
+    return user;
+  }
+
+  // 사이드바 항목이 선택 상태로 강조되어 있는지(제목 텍스트는 사이드바가 먼저 나온다)
+  const isHighlighted = (title: string) =>
+    screen.getAllByText(title)[0].closest('[aria-current="true"]') !== null;
+
+  // A1
+  it('should 메인 영역에 해당 노트의 제목과 내용을 표시하고 그 항목을 강조 when 휴지통 뷰에서 항목 클릭', async () => {
+    const user = await openTrash();
+
+    await user.click(screen.getByText('삭제된 노트 C'));
+
+    expect(await screen.findByText('내용 C')).toBeInTheDocument();
+    expect(screen.getAllByText('삭제된 노트 C')).toHaveLength(2); // 사이드바 + 메인
+    expect(isHighlighted('삭제된 노트 C')).toBe(true);
+    expect(isHighlighted('삭제된 노트 D')).toBe(false);
+  });
+
+  // A2
+  it('should 메인 영역이 일반 NoteEditor로 돌아감 when 노트를 미리보기 중 "목록으로 돌아가기" 클릭', async () => {
+    const user = await openTrash();
+    await user.click(screen.getByText('삭제된 노트 C'));
+    expect(await screen.findByText('내용 C')).toBeInTheDocument(); // 미리보기 중
+
+    await user.click(screen.getByRole('button', { name: /돌아가기/ }));
+
+    expect(await screen.findByText(EDITOR_GUIDE_TEXT)).toBeInTheDocument();
+    expect(screen.queryByText('내용 C')).not.toBeInTheDocument();
+    expect(screen.getByText('제목 A')).toBeInTheDocument();
+  });
+
+  // A3
+  it('should 사이드바가 일반 목록으로 전환되고 빈 NoteEditor가 생성 모드로 열림 when 휴지통 뷰에서 헤더 "+ 새 노트" 클릭', async () => {
+    const user = await openTrash();
+
+    await user.click(screen.getByRole('button', { name: '+ 새 노트' }));
+
+    expect(await screen.findByText('제목 A')).toBeInTheDocument();
+    expect(screen.queryByText('삭제된 노트 C')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /돌아가기/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: '노트 제목' })).toHaveValue('');
+  });
+
+  // A4
+  it('should 미리보기가 사라지고 휴지통 선택이 해제됨 when 노트를 미리보기 중 "+ 새 노트" 클릭', async () => {
+    const user = await openTrash();
+    await user.click(screen.getByText('삭제된 노트 C'));
+    expect(await screen.findByText('내용 C')).toBeInTheDocument(); // 미리보기 중
+
+    await user.click(screen.getByRole('button', { name: '+ 새 노트' }));
+
+    expect(screen.queryByText('내용 C')).not.toBeInTheDocument();
+    // 휴지통을 다시 열면 이전 선택이 남아 있지 않다
+    await user.click(await screen.findByRole('button', { name: '휴지통' }));
+    expect(await screen.findByText(GUIDE_TEXT)).toBeInTheDocument();
+    expect(screen.queryByText('내용 C')).not.toBeInTheDocument();
+  });
+
+  // A5
+  it('should 새 노트가 일반 목록에 나타나고 휴지통에는 나타나지 않음 when 휴지통 뷰에서 "+ 새 노트"로 새 노트를 저장', async () => {
+    const user = await openTrash();
+    await user.click(screen.getByRole('button', { name: '+ 새 노트' }));
+    await user.type(await screen.findByRole('textbox', { name: '노트 제목' }), '새 노트 제목');
+
+    await user.click(screen.getByRole('button', { name: '저장' }));
+
+    expect(await screen.findByText('새 노트 제목')).toBeInTheDocument(); // 일반 목록
+    expect(screen.getByText('제목 A')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '휴지통' }));
+    expect(await screen.findByText('삭제된 노트 C')).toBeInTheDocument();
+    expect(screen.queryByText('새 노트 제목')).not.toBeInTheDocument();
+  });
+
+  // A6
+  it('should 선택 안내 문구가 표시됨(이전 선택이 해제됨) when 미리보기 후 일반 목록으로 돌아갔다가 휴지통을 다시 연 경우', async () => {
+    const user = await openTrash();
+    await user.click(screen.getByText('삭제된 노트 C'));
+    expect(await screen.findByText('내용 C')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /돌아가기/ }));
+
+    await user.click(await screen.findByRole('button', { name: '휴지통' }));
+
+    expect(await screen.findByText(GUIDE_TEXT)).toBeInTheDocument();
+    expect(screen.queryByText('내용 C')).not.toBeInTheDocument();
+    expect(isHighlighted('삭제된 노트 C')).toBe(false);
+  });
+
+  // A7
+  it('should 메인 영역에 선택 안내 문구를 표시 when 휴지통 뷰를 열었고 아직 선택한 노트가 없음', async () => {
+    await openTrash();
+
+    expect(screen.getByText(GUIDE_TEXT)).toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: '노트 제목' })).not.toBeInTheDocument();
+  });
+
+  // A8
+  it('should 미리보기가 새로 선택한 노트로 교체되고 강조도 옮겨감 when 미리보기 중 다른 휴지통 항목 클릭', async () => {
+    const user = await openTrash();
+    await user.click(screen.getByText('삭제된 노트 C'));
+    expect(await screen.findByText('내용 C')).toBeInTheDocument();
+
+    await user.click(screen.getAllByText('삭제된 노트 D')[0]);
+
+    expect(await screen.findByText('내용 D')).toBeInTheDocument();
+    expect(screen.queryByText('내용 C')).not.toBeInTheDocument();
+    expect(isHighlighted('삭제된 노트 D')).toBe(true);
+    expect(isHighlighted('삭제된 노트 C')).toBe(false);
+  });
+
+  // A10
+  // 회귀 테스트: 기존 NotePreview의 빈 값 폴백이 이미 충족하는 동작이라 Red 단계에서도 통과한다.
+  it('should 메인에 "(제목 없음)"과 "(내용 없음)"이 표시되고 에러가 없음 when 제목/내용이 빈 휴지통 노트를 선택', async () => {
+    serverNotes = [
+      ...serverNotes,
+      createTestNote({
+        id: 'test-5',
+        title: '',
+        content: '',
+        deletedAt: '2025-01-15T12:00:00.000Z',
+      }),
+    ];
+    const user = await openTrash();
+    expect(screen.getAllByText('(제목 없음)')).toHaveLength(1); // 사이드바 항목만
+
+    await user.click(screen.getByText('(제목 없음)'));
+
+    expect(await screen.findByText('(내용 없음)')).toBeInTheDocument();
+    expect(screen.getAllByText('(제목 없음)')).toHaveLength(2); // 사이드바 + 메인
+    expect(screen.queryByText(GUIDE_TEXT)).not.toBeInTheDocument();
+  });
+
+  // A11
+  // 회귀 테스트: 기존 handleNewNote의 선택 해제가 이미 충족하는 동작이라 Red 단계에서도 통과한다.
+  it('should 이전 일반 목록 선택/생성 상태가 에디터에 남지 않음 when 노트 선택 후 휴지통을 열었다가 "+ 새 노트" 클릭', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(await screen.findByText('제목 A'));
+    expect(await screen.findByDisplayValue('제목 A')).toBeInTheDocument(); // 일반 노트 편집 중
+    await user.click(screen.getByRole('button', { name: '휴지통' }));
+    await screen.findByText('삭제된 노트 C');
+
+    await user.click(screen.getByRole('button', { name: '+ 새 노트' }));
+
+    expect(await screen.findByRole('textbox', { name: '노트 제목' })).toHaveValue('');
+    expect(screen.getByRole('textbox', { name: '노트 내용' })).toHaveValue('');
+    expect(screen.queryByDisplayValue('제목 A')).not.toBeInTheDocument();
+  });
+
+  // A12
+  it('should 메인에 해당 노트의 태그가 삭제 버튼 없이 표시 when 태그가 있는 휴지통 노트를 선택', async () => {
+    serverNotes = serverNotes.map((n) =>
+      n.id === 'test-3' ? { ...n, tags: ['react', 'design'] } : n,
+    );
+    const user = await openTrash();
+
+    await user.click(screen.getByText('삭제된 노트 C'));
+
+    expect(await screen.findByText('react')).toBeInTheDocument();
+    expect(screen.getByText('design')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /태그 삭제/ })).not.toBeInTheDocument();
+  });
+
+  // A13
+  it('should 미리보기의 태그가 새로 선택한 노트의 태그로 교체됨 when 태그가 다른 두 휴지통 노트를 차례로 선택', async () => {
+    serverNotes = serverNotes.map((n) => {
+      if (n.id === 'test-3') return { ...n, tags: ['react'] };
+      if (n.id === 'test-4') return { ...n, tags: ['vue'] };
+      return n;
+    });
+    const user = await openTrash();
+    await user.click(screen.getByText('삭제된 노트 C'));
+    expect(await screen.findByText('react')).toBeInTheDocument();
+
+    await user.click(screen.getAllByText('삭제된 노트 D')[0]);
+
+    expect(await screen.findByText('vue')).toBeInTheDocument();
+    expect(screen.queryByText('react')).not.toBeInTheDocument();
+  });
+});
