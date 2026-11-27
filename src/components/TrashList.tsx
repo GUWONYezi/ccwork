@@ -25,25 +25,29 @@ export function TrashList({ notes, selectedId, onSelect, onBack }: TrashListProp
       )}
 
       {/* 휴지통 노트 */}
-      {notes.map((note) => (
-        <div
-          key={note.id}
-          onClick={() => onSelect(note.id)}
-          aria-current={note.id === selectedId ? 'true' : undefined}
-          className={`rounded-md p-4 cursor-pointer transition-colors ${
-            note.id === selectedId
-              ? 'bg-surface-container-highest'
-              : 'bg-surface-container-lowest hover:bg-surface'
-          }`}
-        >
-          <h3 className="font-semibold text-sm text-on-surface line-clamp-1">
-            {note.title || '(제목 없음)'}
-          </h3>
-          <p className="text-xs uppercase tracking-[0.05em] text-on-surface-variant mt-2">
-            {note.deletedAt ? new Date(note.deletedAt).toLocaleDateString('ko-KR') : ''}
-          </p>
-        </div>
-      ))}
+      {notes.map((note) => {
+        const isSelected = note.id === selectedId;
+
+        return (
+          <div
+            key={note.id}
+            onClick={() => onSelect(note.id)}
+            aria-current={isSelected ? 'true' : undefined}
+            className={`rounded-md p-4 cursor-pointer transition-colors ${
+              isSelected
+                ? 'bg-surface-container-highest'
+                : 'bg-surface-container-lowest hover:bg-surface'
+            }`}
+          >
+            <h3 className="font-semibold text-sm text-on-surface line-clamp-1">
+              {note.title || '(제목 없음)'}
+            </h3>
+            <p className="text-xs uppercase tracking-[0.05em] text-on-surface-variant mt-2">
+              {note.deletedAt ? new Date(note.deletedAt).toLocaleDateString('ko-KR') : ''}
+            </p>
+          </div>
+        );
+      })}
     </div>
   );
 }

@@ -2,7 +2,9 @@ import type { ReactElement } from 'react';
 
 interface TagProps {
   label: string;
-  onDelete?: () => void; // x 버튼 클릭 시. 어떤 태그인지는 부모(TagList)가 바인딩한다. 생략하면 삭제 버튼 없음(읽기 전용)
+  // x 버튼 클릭 시. 어떤 태그인지는 부모(TagList)가 바인딩한다
+  // 생략하면 삭제 버튼을 그리지 않는다 (읽기 전용)
+  onDelete?: () => void;
 }
 
 export function Tag({ label, onDelete }: TagProps): ReactElement {

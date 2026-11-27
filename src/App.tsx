@@ -73,12 +73,14 @@ function App() {
 
   const handleSelectTrash = (id: string) => setSelectedTrashId(id);
 
+  const isTrashView = sidebarView === 'trash';
+
   return (
     <NotesProvider>
       <Layout
         onNewNote={handleNewNote}
         sidebar={
-          sidebarView === 'trash' ? (
+          isTrashView ? (
             <TrashSidebar
               selectedTrashId={selectedTrashId}
               onSelect={handleSelectTrash}
@@ -96,7 +98,7 @@ function App() {
           )
         }
         main={
-          sidebarView === 'trash' ? (
+          isTrashView ? (
             <TrashPreview selectedTrashId={selectedTrashId} />
           ) : (
             <NoteEditor

@@ -3,7 +3,9 @@ import { Tag } from './Tag';
 
 interface TagListProps {
   tags: string[];
-  onDelete?: (index: number) => void; // Tag의 onDelete를 () => onDelete(index)로 연결. 생략하면 모든 Tag가 읽기 전용
+  // Tag의 onDelete를 () => onDelete(index)로 연결한다
+  // 생략하면 모든 Tag가 읽기 전용이다
+  onDelete?: (index: number) => void;
 }
 
 export function TagList({ tags, onDelete }: TagListProps): ReactElement | null {
